@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>내 대시보드 · 북극성 자산운용</title>
+<style>
+  :root{--bg:#0a0f1c;--bg2:#0e1626;--card:#121c30;--card2:#16223a;--border:#22304a;
+    --text:#eaf0fa;--muted:#90a0bb;--gold:#d9b46a;--gold2:#f0d59a;--accent:#4b8bff;--up:#22c55e;--down:#f6465d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 18px 60px}
+  nav{position:sticky;top:0;z-index:30;background:rgba(10,15,28,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:800;letter-spacing:.4px}.brand .s{color:var(--gold)}
+  .navbtns{display:flex;gap:10px;align-items:center;font-size:14px}
+  .navbtns a,.navbtns span{padding:7px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--muted)}
+  h1{font-size:24px;margin:26px 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .card .k{font-size:12px;color:var(--muted)}.card .v{font-size:24px;font-weight:800;margin-top:6px}.card .s2{font-size:13px;margin-top:4px}
+  .up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--muted)}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:18px}
+  .panel h2{font-size:17px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:12px;font-weight:600}th:first-child,td:first-child{text-align:left}
+  .mk{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-right:6px}
+  .cmp{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;text-align:center}
+  .cmp .b{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .cmp .b .k{font-size:12px;color:var(--muted)}.cmp .b .v{font-size:20px;font-weight:800;margin-top:6px}
+  .guide{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .guide li{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px}
+  .guide .ic{font-size:16px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .btn{padding:11px 18px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:14px}
+  .btn.gold{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  .editrow{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .editrow label{flex:1;font-size:14px}
+  .editrow input{width:90px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);text-align:right}
+  .editrow input.seed{width:160px}
+  select,.editrow select{padding:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text)}
+  .wsum{font-weight:700;margin-top:8px}.muted{color:var(--muted)}
+  .disc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-top:18px}
+  .loading{color:var(--muted);padding:50px;text-align:center}
+  #editPanel{display:none}
+  @media print{nav,.btns,.navbtns,#editPanel,.noprint{display:none!important}
+    body{background:#fff;color:#000}.card,.panel,.cmp .b,.guide li{background:#fff;border-color:#bbb;color:#000}
+    .muted,.card .k,th{color:#444}h1{margin-top:0}.reportonly{display:block!important}}
+  .reportonly{display:none}
+</style></head>
+<body>
+<nav><div class="wrap">
+  <div class="brand"><span class="s">✦</span> 북극성 자산운용</div>
+  <div class="navbtns" id="navbtns"><a href="/">홈</a></div>
+</div></nav>
+<div class="wrap" id="root"><div class="loading">불러오는 중…</div></div>
+
+<script src="assets/core.js"></script>
+<script>
+let ME=null, ACC=null, PF=[];
+const won=v=>v==null?"-":Math.round(v).toLocaleString("ko-KR")+"원";
+const eok=v=>(v/1e8).toFixed(2)+"억";
+const pct=v=>v==null?"-":(v>0?"+":"")+(v*100).toFixed(2)+"%";
+const cls=v=>v>0?"up":v<0?"down":"flat";
+
+async function boot(){
+  await Polaris.seedOwner();
+  let me; try{ me=await Polaris.API.me(); }catch(e){ location.href="/"; return; }
+  if(!me.auth){ location.href="/"; return; }
+  ME=me; PF=Polaris.PORTFOLIOS; ACC=me.account;
+  renderNav(); render();
+}
+function renderNav(){
+  const admin=ME.user.role==="admin"?`<a href="admin.html">관리자</a>`:"";
+  document.getElementById("navbtns").innerHTML=
+    `<span class="muted" style="border:none">${ME.user.name}님</span><a href="/">홈</a>${admin}<span onclick="logout()">로그아웃</span>`;
+}
+function logout(){ Polaris.API.logout(); location.href="/"; }
+
+function render(){
+  const root=document.getElementById("root");
+  if(!ACC){ root.innerHTML=`<h1>가입된 투자 계좌가 없습니다.</h1><p class="sub">홈에서 상품을 선택해 가입해 주세요.</p><a class="btn gold" href="/">상품 보러가기</a>`; return; }
+  const a=ACC, retCls=cls(a.currentReturn), gapCls=cls(a.gap);
+  const rows=a.holdings.map(h=>{
+    const isCash=h.market==="CASH";
+    const price=isCash?"—":(h.price!=null?won(h.price):"<span class='down'>실패</span>");
+    return `<tr>
+      <td><span class="mk">${isCash?"현금":h.market==="US"?"美":"韓"}</span>${h.label}${isCash?"":" · "+h.code}</td>
+      <td>${h.weight}% <span class="muted">/ ${h.curWeight.toFixed(1)}%</span></td>
+      <td>${isCash?"—":won(h.entry)}</td><td>${price}</td><td>${won(h.value)}</td>
+      <td class="${cls(h.ret)}">${pct(h.ret)}</td><td class="${cls(h.dayChange)}">${pct(h.dayChange/100)}</td></tr>`;}).join("");
+  const guide=a.guide.map(g=>{const ic=g.level==="warn"?"⚠️":g.level==="good"?"✅":"💡";
+    return `<li class="${g.level}"><span class="ic">${ic}</span><span>${g.text}</span></li>`;}).join("");
+  root.innerHTML=`
+    <h1>${ME.user.name}님의 자산 대시보드</h1>
+    <div class="sub">상품 <b>${a.portfolioName}</b> (${a.target}) · 투자 시작 ${a.startDate} · 경과 ${a.elapsedYears}년 · 환율 ${Math.round(a.fx).toLocaleString()}원</div>
+    <p class="reportonly" style="color:#666;font-size:12px">북극성 자산운용 · 고객 리포트 · 생성일 ${new Date().toLocaleString("ko-KR")}</p>
+    <div class="cards">
+      <div class="card"><div class="k">총 평가금액</div><div class="v">${won(a.totalValue)}</div><div class="s2 muted">투자원금 ${won(a.seed)}</div></div>
+      <div class="card"><div class="k">현재 수익률</div><div class="v ${retCls}">${pct(a.currentReturn)}</div><div class="s2 ${retCls}">${won(a.totalValue-a.totalCost)}</div></div>
+      <div class="card"><div class="k">일간 등락(가중)</div><div class="v ${cls(a.dayChange)}">${pct(a.dayChange/100)}</div></div>
+      <div class="card"><div class="k">현재 vs 예상</div><div class="v ${gapCls}">${a.gap>=0?"+":""}${eok(a.gap)}</div><div class="s2 muted">예상대비 ${a.gap>=0?"초과":"미달"}</div></div>
+    </div>
+    <div class="panel"><h2>예상수익 vs 현재수익</h2><div class="cmp">
+      <div class="b"><div class="k">현재 평가금액</div><div class="v">${won(a.totalValue)}</div><div class="${retCls}">${pct(a.currentReturn)}</div></div>
+      <div class="b"><div class="k">예상 평가금액 (목표 ${a.target})</div><div class="v">${won(a.expectedValue)}</div><div class="muted">${pct(a.expectedReturn)}</div></div>
+      <div class="b"><div class="k">차이</div><div class="v ${gapCls}">${a.gap>=0?"+":""}${won(a.gap)}</div><div class="${gapCls}">${a.gap>=0?"기대 상회":"기대 하회"}</div></div>
+    </div></div>
+    <div class="panel"><h2>보유 자산 구성</h2>
+      <table><thead><tr><th>자산</th><th>비중 목표/현재</th><th>취득가</th><th>현재가</th><th>평가금액</th><th>수익률</th><th>일간</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="panel"><h2>향후 가이드</h2><ul class="guide">${guide}</ul></div>
+    <div class="btns noprint">
+      <button class="btn gold" onclick="openEdit()">포트폴리오 수정</button>
+      <button class="btn" onclick="window.print()">📄 리포트 PDF 저장/인쇄</button>
+      <button class="btn" onclick="emailReport()">✉️ 메일로 보내기</button>
+    </div>
+    <div class="panel" id="editPanel"><h2>포트폴리오 수정</h2>
+      <div class="editrow"><label>상품 선택</label><select id="ed-pid" onchange="onProductChange()"></select></div>
+      <div class="editrow"><label>투자 시드 (원)</label><input class="seed" id="ed-seed" inputmode="numeric"></div>
+      <div id="ed-holdings"></div><div class="wsum" id="ed-wsum"></div>
+      <p class="muted" style="font-size:12px;margin-top:6px">※ 수정 시 현재 시세로 재매수(리밸런싱)되어 취득원가와 수익률이 today 기준으로 재설정됩니다.</p>
+      <div class="btns"><button class="btn gold" onclick="saveEdit()">저장하고 재투자</button>
+        <button class="btn" onclick="document.getElementById('editPanel').style.display='none'">취소</button></div>
+      <div class="down" id="ed-err" style="font-size:13px;margin-top:8px"></div></div>
+    <div class="disc">⚠️ 본 리포트는 데모이며 실제 투자 자문이 아닙니다. 시세·환율은 외부 무료 데이터 기반으로 지연·오차가 있을 수 있습니다.
+      예상수익은 상품 목표수익률 중앙값을 경과기간에 복리 적용한 단순 추정치입니다. 과거·현재 성과는 미래를 보장하지 않습니다.</div>`;
+}
+
+function openEdit(){
+  const ep=document.getElementById("editPanel"); ep.style.display="block";
+  const sel=document.getElementById("ed-pid");
+  sel.innerHTML=PF.map(p=>`<option value="${p.id}">${p.name} · ${p.target}</option>`).join("");
+  sel.value=ACC.portfolioId;
+  const seed=document.getElementById("ed-seed");
+  seed.value=Math.round(ACC.seed).toLocaleString("ko-KR");
+  seed.addEventListener("input",e=>{const n=e.target.value.replace(/[^0-9]/g,"");e.target.value=n?parseInt(n,10).toLocaleString("ko-KR"):"";});
+  loadHoldingsEditor(ACC.holdings);
+  ep.scrollIntoView({behavior:"smooth"});
+}
+function onProductChange(){ const p=PF.find(x=>x.id===document.getElementById("ed-pid").value);
+  loadHoldingsEditor(p.holdings.map(h=>({label:h.label,code:h.code,market:h.market,weight:h.weight}))); }
+let EDIT_HOLD=[];
+function loadHoldingsEditor(holds){
+  EDIT_HOLD=holds.map(h=>({market:h.market,code:h.code,label:h.label,weight:h.weight}));
+  document.getElementById("ed-holdings").innerHTML=EDIT_HOLD.map((h,i)=>`<div class="editrow">
+    <label><span class="mk">${h.market==="CASH"?"현금":h.market==="US"?"美":"韓"}</span>${h.label}</label>
+    <input type="number" min="0" max="100" step="0.5" value="${h.weight}" oninput="onWeight(${i},this.value)">% </div>`).join("");
+  updateWSum();
+}
+function onWeight(i,v){ EDIT_HOLD[i].weight=parseFloat(v)||0; updateWSum(); }
+function updateWSum(){ const s=EDIT_HOLD.reduce((a,h)=>a+(h.weight||0),0);
+  document.getElementById("ed-wsum").innerHTML=`비중 합계: <span class="${Math.abs(s-100)<0.5?'up':'down'}">${s.toFixed(1)}%</span> ${Math.abs(s-100)<0.5?"":"(100%로 맞춰주세요)"}`; }
+async function saveEdit(){
+  const pid=document.getElementById("ed-pid").value;
+  const seed=parseInt(document.getElementById("ed-seed").value.replace(/[^0-9]/g,""),10);
+  const s=EDIT_HOLD.reduce((a,h)=>a+(h.weight||0),0);
+  if(Math.abs(s-100)>0.5){ document.getElementById("ed-err").textContent="비중 합계를 100%로 맞춰주세요."; return; }
+  try{ await Polaris.API.updateAccount({portfolioId:pid,seed,holdings:EDIT_HOLD}); }
+  catch(e){ document.getElementById("ed-err").textContent=e.message; return; }
+  location.reload();
+}
+function emailReport(){
+  const a=ACC;
+  const lines=[`[북극성 자산운용] ${ME.user.name}님 투자 리포트`,``,
+    `상품: ${a.portfolioName} (${a.target})`,
+    `투자원금: ${won(a.seed)} / 투자시작: ${a.startDate} (경과 ${a.elapsedYears}년)`,
+    `현재 평가금액: ${won(a.totalValue)} (${pct(a.currentReturn)})`,
+    `예상 평가금액: ${won(a.expectedValue)} (${pct(a.expectedReturn)})`,
+    `현재-예상 차이: ${a.gap>=0?"+":""}${won(a.gap)}`,``,`[보유자산]`,
+    ...a.holdings.map(h=>` - ${h.label}: 비중 ${h.weight}%→${h.curWeight.toFixed(1)}%, 평가 ${won(h.value)} (${pct(h.ret)})`),
+    ``,`[가이드]`,...a.guide.map(g=>` - ${g.text}`),``,
+    `※ 상세 표/그래프는 대시보드의 'PDF 저장/인쇄'로 첨부해 주세요.`];
+  location.href=`mailto:${ME.user.email}?subject=${encodeURIComponent("북극성 자산운용 투자 리포트 - "+ME.user.name+"님")}&body=${encodeURIComponent(lines.join("\n"))}`;
+}
+boot();
+</script>
+</body></html>

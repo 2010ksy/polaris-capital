@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# 로컬 미리보기/파이썬
+__pycache__/
+*.pyc
+
+# 로컬 DB (서버 버전용 — 정적 배포엔 불필요)
+*.db
+
+# 의존성/빌드
+node_modules/
+.netlify/
+
+# 비밀키 (Supabase 등) — 실제 키는 커밋하지 말 것
+.env
+.env.*

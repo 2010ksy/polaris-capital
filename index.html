@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>북극성 자산운용 · POLARIS CAPITAL</title>
+<style>
+  :root{--bg:#0a0f1c;--bg2:#0e1626;--card:#121c30;--card2:#16223a;--border:#22304a;
+    --text:#eaf0fa;--muted:#90a0bb;--gold:#d9b46a;--gold2:#f0d59a;--blue:#4b8bff;--accent:#4b8bff;
+    --up:#22c55e;--down:#f6465d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  nav{position:sticky;top:0;z-index:50;background:rgba(10,15,28,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px}
+  .brand .star{color:var(--gold);font-size:20px}
+  .brand small{display:block;font-size:10px;color:var(--gold);letter-spacing:2px;font-weight:600}
+  .navlinks{display:flex;gap:18px;font-size:14px;color:var(--muted);align-items:center}
+  .navlinks a{cursor:pointer}.navlinks a:hover{color:var(--text)}
+  .navlinks .cta{color:var(--bg);background:var(--gold);padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer}
+  .navlinks .ghostbtn{border:1px solid var(--border);padding:7px 14px;border-radius:8px;cursor:pointer;color:var(--text)}
+  #authArea{display:flex;gap:10px;align-items:center}#authArea .uname{color:var(--gold2);font-weight:600}
+  .hero{position:relative;padding:90px 0 70px;
+    background:radial-gradient(1200px 500px at 70% -10%,rgba(217,180,106,.16),transparent 60%),radial-gradient(800px 400px at 10% 10%,rgba(75,139,255,.12),transparent 60%)}
+  .hero h1{font-size:46px;line-height:1.2;font-weight:800;letter-spacing:-.5px}
+  .hero h1 .g{background:linear-gradient(90deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin-top:18px;font-size:18px;color:var(--muted);max-width:620px}
+  .hero .btns{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap}
+  .btn{padding:13px 24px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;border:1px solid transparent}
+  .btn.primary{background:var(--gold);color:#1a1206}.btn.ghost{background:transparent;border-color:var(--border);color:var(--text)}
+  .stats{margin-top:54px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .stat .v{font-size:26px;font-weight:800;color:var(--gold2)}.stat .k{font-size:13px;color:var(--muted);margin-top:4px}
+  section{padding:64px 0}
+  .eyebrow{color:var(--gold);font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+  h2{font-size:30px;font-weight:800;margin:8px 0 10px}.lead{color:var(--muted);max-width:680px}
+  .values{margin-top:34px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .value{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px}
+  .value .ic{font-size:24px}.value h3{margin:12px 0 6px;font-size:17px}.value p{color:var(--muted);font-size:14px}
+  .pf-grid{margin-top:34px;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:18px}
+  .pf{background:linear-gradient(165deg,var(--card2),var(--card));border:1px solid var(--border);border-radius:18px;padding:26px;display:flex;flex-direction:column}
+  .pf .tag{font-size:12px;color:var(--gold);letter-spacing:1.5px;font-weight:700}
+  .pf h3{font-size:24px;margin:6px 0 2px}.pf .target{font-size:22px;font-weight:800;color:var(--gold2);margin:10px 0}
+  .pf .desc{color:var(--muted);font-size:14px;min-height:64px}
+  .risk{display:flex;gap:5px;margin:14px 0 18px}.risk i{flex:1;height:6px;border-radius:3px;background:var(--border)}.risk i.on{background:var(--gold)}
+  .pf .pick{margin-top:auto;background:transparent;border:1px solid var(--gold);color:var(--gold);padding:11px;border-radius:10px;font-weight:700;cursor:pointer}
+  .pf .pick:hover{background:var(--gold);color:#1a1206}
+  .detail{margin-top:30px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;display:none}
+  .detail.show{display:block}
+  .detail .head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:flex-start}
+  .seedbox{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px 14px}
+  .seedbox label{font-size:12px;color:var(--muted)}
+  .seedbox input{background:transparent;border:none;color:var(--gold2);font-size:20px;font-weight:800;width:170px;text-align:right;outline:none}
+  .dgrid{display:grid;grid-template-columns:280px 1fr;gap:28px;margin-top:24px}
+  @media(max-width:760px){.dgrid{grid-template-columns:1fr}}
+  .donut-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .donut{width:210px;height:210px;border-radius:50%;position:relative}
+  .donut::after{content:"";position:absolute;inset:30px;background:var(--card);border-radius:50%}
+  .donut .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+  .donut .center .t{font-size:12px;color:var(--muted)}.donut .center .v{font-size:20px;font-weight:800}
+  .legend{width:100%;font-size:12px;color:var(--muted)}.legend div{display:flex;align-items:center;gap:6px;margin:3px 0}
+  .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600;font-size:12px}th:first-child,td:first-child{text-align:left}
+  td .mk{font-size:11px;color:var(--muted);padding:1px 6px;border:1px solid var(--border);border-radius:5px;margin-right:6px}
+  .totrow{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border)}
+  .totrow .b{font-size:13px;color:var(--muted)}.totrow .b b{display:block;font-size:22px;color:var(--text);font-weight:800;margin-top:2px}
+  .section-title{font-size:13px;color:var(--muted);margin:26px 2px 12px}
+  .muted{color:var(--muted)}
+  .subtabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:26px}
+  .subtab{padding:9px 16px;font-size:14px;font-weight:600;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--muted);cursor:pointer}
+  .subtab.on{color:#1a1206;background:var(--gold);border-color:var(--gold)}
+  .periodNote{font-size:12px;color:var(--muted);margin-left:6px}
+  .chartcard{margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px}
+  .charthead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:14px}
+  .legend2{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+  .legend2 span{display:inline-flex;align-items:center;gap:5px}.legend2 i{width:12px;height:3px;border-radius:2px;display:inline-block}
+  #chart svg{width:100%;height:auto;display:block}
+  .tablecard{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:6px 16px;overflow-x:auto}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:760px){.twocol{grid-template-columns:1fr}}
+  .cols{margin-top:30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .col{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+  .col .n{color:var(--gold);font-weight:800;font-size:14px}.col h4{margin:8px 0 6px}.col p{color:var(--muted);font-size:14px}
+  .contact{background:linear-gradient(135deg,rgba(217,180,106,.12),rgba(75,139,255,.08));border:1px solid var(--border);border-radius:20px;padding:40px;text-align:center}
+  .contact .btns{margin-top:22px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--muted)}
+  footer{border-top:1px solid var(--border);padding:30px 0;color:var(--muted);font-size:12px}
+  .disc{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:12px;color:var(--muted);margin-top:18px}
+  .modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center}
+  .modal.show{display:flex}
+  .modalbox{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px;width:min(400px,92vw);position:relative}
+  .mclose{position:absolute;top:14px;right:18px;color:var(--muted);font-size:22px;cursor:pointer}
+  .mtabs{display:flex;gap:8px;margin-bottom:18px}
+  .mtab{flex:1;padding:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-weight:600;cursor:pointer}
+  .mtab.on{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  .modalbox input,.modalbox select{width:100%;padding:12px;margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none}
+  .flabel{display:block;font-size:12px;color:var(--muted);margin-top:14px}
+  .mbtn{width:100%;margin-top:16px;padding:13px;background:var(--gold);color:#1a1206;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer}
+  .autherr{color:#f6465d;font-size:13px;min-height:18px;margin-bottom:4px}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <div class="brand"><span class="star">✦</span><div>북극성 자산운용<small>POLARIS CAPITAL</small></div></div>
+  <div class="navlinks">
+    <a href="#about">회사소개</a><a href="#portfolios">포트폴리오</a>
+    <a href="#performance">성과·백테스트</a><a href="#process">절차·수수료</a>
+    <span id="authArea"></span>
+  </div>
+</div></nav>
+
+<div class="modal" id="authModal"><div class="modalbox">
+  <span class="mclose" onclick="closeAuth()">×</span>
+  <div class="mtabs"><button class="mtab on" id="mtab-login" onclick="authTab('login')">로그인</button>
+    <button class="mtab" id="mtab-signup" onclick="authTab('signup')">회원가입</button></div>
+  <div id="authError" class="autherr"></div>
+  <div id="form-login">
+    <input id="li-email" type="email" placeholder="이메일">
+    <input id="li-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="mbtn" onclick="doLogin()">로그인</button>
+  </div>
+  <div id="form-signup" style="display:none">
+    <input id="su-name" placeholder="이름"><input id="su-email" type="email" placeholder="이메일">
+    <input id="su-pw" type="password" placeholder="비밀번호 (4자 이상)">
+    <label class="flabel">가입할 상품</label><select id="su-pid"></select>
+    <label class="flabel">투자 시드 (원)</label><input id="su-seed" inputmode="numeric" value="100,000,000">
+    <label class="flabel">투자 시작일</label><input id="su-start" type="date">
+    <button class="mbtn" onclick="doSignup()">가입하고 투자 시작</button>
+    <p class="muted" style="font-size:12px;margin-top:8px">가입 즉시 해당 상품 모델 포트폴리오로 투자가 개시됩니다.</p>
+  </div>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">데이터 기반 자산운용</div>
+  <h1>당신의 자본에<br><span class="g">북극성</span>이 되어 드립니다</h1>
+  <p id="slogan"></p>
+  <div class="btns">
+    <div class="btn primary" onclick="document.getElementById('portfolios').scrollIntoView()">모델 포트폴리오 보기</div>
+    <div class="btn ghost" onclick="openAuth('signup')">회원가입하고 투자 시작</div>
+  </div>
+  <div class="stats" id="stats"></div>
+</div></header>
+
+<section id="about"><div class="wrap">
+  <div class="eyebrow">About</div><h2>원칙은 단순하게, 분산은 철저하게</h2>
+  <p class="lead">북극성 자산운용은 한국과 미국 시장의 우량 자산을 실시간 데이터로 분석하여, 고객의 위험성향에 맞는 모델 포트폴리오를 제공합니다.</p>
+  <div class="values">
+    <div class="value"><div class="ic">🧭</div><h3>위험성향별 설계</h3><p>안정형부터 성장형까지, 감내할 수 있는 변동성에 맞춰 자산을 배분합니다.</p></div>
+    <div class="value"><div class="ic">🌐</div><h3>한·미 글로벌 분산</h3><p>국내 우량주와 미국 빅테크·지수 ETF를 결합해 통화·지역을 분산합니다.</p></div>
+    <div class="value"><div class="ic">📈</div><h3>실시간 평가</h3><p>실시간 시세와 환율을 반영해 포트폴리오 평가금액을 투명하게 보여드립니다.</p></div>
+    <div class="value"><div class="ic">🔍</div><h3>투명한 비용</h3><p>숨은 비용 없이 운용보수 체계를 명확히 공개합니다.</p></div>
+  </div>
+</div></section>
+
+<section id="portfolios" style="background:var(--bg2)"><div class="wrap">
+  <div class="eyebrow">Model Portfolios</div><h2>세 가지 모델 포트폴리오</h2>
+  <p class="lead">기준 시드 <b id="seedLabel"></b>를 가정한 자산 배분입니다. 카드를 선택하면 실시간 시세 기준 상세 배분을 확인할 수 있습니다.</p>
+  <div class="pf-grid" id="pfGrid"></div>
+  <div class="detail" id="detail"></div>
+</div></section>
+
+<section id="performance"><div class="wrap">
+  <div class="eyebrow">Backtest</div><h2>실데이터 백테스트 성과</h2>
+  <p class="lead">실제 과거 시세(수정종가)와 환율로 시뮬레이션한 결과입니다. <b>과거 성과는 미래를 보장하지 않습니다.</b></p>
+  <div id="btWrap">
+    <div class="subtabs">
+      <button class="subtab on" data-p="base" onclick="setPeriod('base')">기본기간</button>
+      <button class="subtab" data-p="extended" onclick="setPeriod('extended')">확장기간 (2015~)</button>
+      <span class="periodNote" id="periodNote"></span>
+    </div>
+    <div class="chartcard"><div class="charthead"><div><b>1억 원 성장 곡선</b> <span id="scaleNote" class="muted"></span></div>
+      <div class="legend2" id="chartLegend"></div></div><div id="chart"></div></div>
+    <div class="section-title">핵심 지표</div><div class="tablecard" id="metricTable"></div>
+    <div class="section-title">연도별 수익률</div><div class="tablecard" id="calTable"></div>
+    <div class="twocol">
+      <div><div class="section-title">비용·세금 반영 (기본기간)</div><div class="tablecard" id="costTable"></div></div>
+      <div><div class="section-title">리밸런싱 주기 비교 (기본기간)</div><div class="tablecard" id="rebalTable"></div></div>
+    </div>
+    <div class="disc" id="btDisc"></div>
+  </div>
+</div></section>
+
+<section id="process" style="background:var(--bg2)"><div class="wrap">
+  <div class="eyebrow">How it works</div><h2>가입 절차 &amp; 수수료</h2>
+  <div class="cols">
+    <div class="col"><div class="n">STEP 01</div><h4>회원가입</h4><p>이메일로 가입하고 위험성향에 맞는 상품을 선택합니다.</p></div>
+    <div class="col"><div class="n">STEP 02</div><h4>투자 개시</h4><p>선택한 모델 포트폴리오로 즉시 투자가 시작됩니다.</p></div>
+    <div class="col"><div class="n">STEP 03</div><h4>대시보드 관리</h4><p>실시간 평가·수익률을 확인하고 포트폴리오를 수정합니다.</p></div>
+    <div class="col"><div class="n">STEP 04</div><h4>리포트</h4><p>PDF 리포트를 저장하거나 메일로 받아봅니다.</p></div>
+  </div>
+  <div class="cols" style="margin-top:16px">
+    <div class="col"><div class="n">운용보수</div><h4>연 0.9%</h4><p>평가금액 기준, 매월 후취.</p></div>
+    <div class="col"><div class="n">성과보수</div><h4>초과수익의 10%</h4><p>기준수익률(연 4%) 초과분에 한해.</p></div>
+    <div class="col"><div class="n">최소 가입금액</div><h4 id="minFee"></h4><p>시드 기준 가입.</p></div>
+  </div>
+</div></section>
+
+<section id="contact"><div class="wrap"><div class="contact">
+  <div class="eyebrow">Get started</div><h2>지금, 항해를 시작하세요</h2>
+  <p class="lead" style="margin:0 auto">회원가입 후 대시보드에서 실시간 평가·수익률·리포트를 확인하세요.</p>
+  <div class="btns"><div class="btn primary" onclick="openAuth('signup')">회원가입하기</div>
+    <div class="btn ghost" onclick="openAuth('login')">로그인</div></div>
+</div>
+<div class="disc">⚠️ <b>고지</b> · 본 사이트는 데모/프로토타입이며 실제 투자 자문·운용·권유가 아닙니다. 회원·계정 정보는 이 브라우저(localStorage)에만 저장됩니다.
+  시세·환율은 외부 무료 데이터(미국 Yahoo Finance, 한국 네이버 금융)를 사용하며 지연·오류가 있을 수 있습니다. 목표수익률은 예시이며 미래 수익을 보장하지 않습니다.</div>
+</div></section>
+
+<footer><div class="wrap">© 2026 북극성 자산운용 (POLARIS CAPITAL) · 데모 사이트 · 데이터: Yahoo Finance / 네이버 금융</div></footer>
+
+<script src="assets/core.js"></script>
+<script>
+const COMPANY=Polaris.COMPANY, PORTFOLIOS=Polaris.PORTFOLIOS;
+const COLORS=["#d9b46a","#4b8bff","#22c55e","#f6465d","#a78bfa","#f59e0b","#2dd4bf","#fb7185","#60a5fa","#facc15","#94a3b8"];
+let BACKTEST=null, seed=COMPANY.seed, fxRate=null, quoteCache={};
+
+const won=v=>Math.round(v).toLocaleString("ko-KR")+"원";
+const wonShort=v=>{const e=v/1e8;return (e>=1?e.toFixed(e>=10?0:1)+"억":Math.round(v/1e4).toLocaleString()+"만")+"원";};
+const cls=c=>c>0?"up":c<0?"down":"flat";
+const sgn=c=>c>0?"▲":c<0?"▼":"-";
+const pct=v=>v==null?"-":(v>0?"+":"")+v.toFixed(2)+"%";
+const fmtChange=c=>c==null?"-":(c>0?"+":"")+Number(c).toLocaleString("en-US",{maximumFractionDigits:2});
+
+document.getElementById("slogan").textContent=COMPANY.slogan+" — 한·미 우량 자산에 분산하는 모델 포트폴리오.";
+document.getElementById("seedLabel").textContent=wonShort(COMPANY.seed);
+document.getElementById("minFee").textContent=wonShort(COMPANY.seed);
+document.getElementById("stats").innerHTML=`
+  <div class="stat"><div class="v">${wonShort(COMPANY.seed)}</div><div class="k">기준 운용 시드</div></div>
+  <div class="stat"><div class="v">3종</div><div class="k">위험성향별 포트폴리오</div></div>
+  <div class="stat"><div class="v">2개국</div><div class="k">한국 · 미국 분산</div></div>
+  <div class="stat"><div class="v">실시간</div><div class="k">시세 · 환율 반영</div></div>`;
+document.getElementById("pfGrid").innerHTML=PORTFOLIOS.map(p=>`
+  <div class="pf"><div class="tag">${p.tag}</div><h3>${p.name}</h3><div class="target">${p.target}</div>
+    <div class="risk">${[1,2,3,4,5].map(i=>`<i class="${i<=p.risk?'on':''}"></i>`).join("")}</div>
+    <div class="desc">${p.desc}</div><button class="pick" onclick="openPortfolio('${p.id}')">상세 배분 보기 →</button></div>`).join("");
+
+// ---------- 환율/시세 ----------
+async function ensureFx(){ if(fxRate)return fxRate; try{fxRate=await Polaris.fetchFX();}catch(e){fxRate=1350;} return fxRate; }
+async function quoteKRW(h){
+  const key=h.market+":"+h.code; if(quoteCache[key])return quoteCache[key];
+  if(h.market==="CASH")return quoteCache[key]={priceKRW:null,changePct:0};
+  try{
+    if(h.market==="US"){const d=await Polaris.fetchUS(h.code);return quoteCache[key]={priceKRW:d.price*fxRate,changePct:d.changePct,native:d.price,cur:"USD"};}
+    const d=await Polaris.fetchKR(h.code,"stock");return quoteCache[key]={priceKRW:d.price,changePct:d.changePct,native:d.price,cur:"KRW"};
+  }catch(e){return quoteCache[key]={priceKRW:null,changePct:0,err:true};}
+}
+async function openPortfolio(id){
+  const p=PORTFOLIOS.find(x=>x.id===id); const box=document.getElementById("detail");
+  box.classList.add("show"); box.innerHTML=`<div style="color:var(--muted)">실시간 시세를 불러오는 중…</div>`;
+  box.scrollIntoView({behavior:"smooth",block:"start"});
+  await ensureFx();
+  const quotes=await Promise.all(p.holdings.map(async h=>({h,q:await quoteKRW(h)})));
+  renderDetail(p,quotes);
+}
+function renderDetail(p,quotes){
+  let wChange=0; quotes.forEach(({h,q})=>{wChange+=(h.weight/100)*(q.changePct||0);});
+  let acc=0; const segs=[];
+  quotes.forEach(({h},i)=>{const a=acc,b=acc+h.weight;acc=b;segs.push(`${COLORS[i%COLORS.length]} ${a}% ${b}%`);});
+  const rows=quotes.map(({h,q},i)=>{
+    const alloc=seed*h.weight/100, isCash=h.market==="CASH";
+    const priceTxt=isCash?"—":(q.err?"<span class='down'>실패</span>":(q.cur==="USD"?"$"+q.native.toLocaleString("en-US",{maximumFractionDigits:2}):Math.round(q.native).toLocaleString()+"원"));
+    const chTxt=isCash?"<span class='flat'>-</span>":`<span class="${cls(q.changePct)}">${sgn(q.changePct)} ${pct(q.changePct)}</span>`;
+    const mk=isCash?"현금":(h.market==="US"?"美":"韓");
+    return `<tr><td><span class="mk">${mk}</span>${h.label}<span style="color:var(--muted)">${isCash?"":" · "+h.code}</span></td>
+      <td><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${COLORS[i%COLORS.length]};margin-right:6px"></i>${h.weight}%</td>
+      <td>${priceTxt}</td><td>${won(alloc)}</td><td>${chTxt}</td></tr>`;}).join("");
+  const legend=quotes.map(({h},i)=>`<div><i style="background:${COLORS[i%COLORS.length]}"></i>${h.label} ${h.weight}%</div>`).join("");
+  document.getElementById("detail").innerHTML=`
+    <div class="head"><div><div class="tag" style="color:var(--gold)">${p.tag} · 목표 ${p.target}</div>
+      <h3>${p.name} 포트폴리오</h3><p style="color:var(--muted);max-width:520px;margin-top:6px">${p.desc}</p></div>
+      <div class="seedbox"><label>운용 시드</label><input id="seedInput" value="${seed.toLocaleString('ko-KR')}" inputmode="numeric"><span style="color:var(--muted)">원</span></div></div>
+    <div class="dgrid"><div class="donut-wrap"><div class="donut" style="background:conic-gradient(${segs.join(",")})">
+      <div class="center"><div class="t">기준 시드</div><div class="v">${wonShort(seed)}</div></div></div>
+      <div class="legend">${legend}</div></div>
+      <div><table><thead><tr><th>자산</th><th>비중</th><th>현재가</th><th>배분금액</th><th>일간</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="totrow"><div class="b">총 배분금액<b>${won(seed)}</b></div>
+        <div class="b">포트폴리오 일간 등락<b class="${cls(wChange)}">${sgn(wChange)} ${pct(wChange)}</b></div>
+        <div class="b">적용 환율(USD/KRW)<b>${fxRate?Math.round(fxRate).toLocaleString()+"원":"-"}</b></div></div></div></div>`;
+  const si=document.getElementById("seedInput");
+  si.addEventListener("input",()=>{const raw=si.value.replace(/[^0-9]/g,"");seed=raw?parseInt(raw,10):0;si.value=seed.toLocaleString("ko-KR");renderDetail(p,quotes);si.setSelectionRange(si.value.length,si.value.length);},{once:true});
+}
+
+// ---------- 성과/백테스트 ----------
+let btPeriod="base";
+function setPeriod(p){btPeriod=p;document.querySelectorAll(".subtab").forEach(b=>b.classList.toggle("on",b.dataset.p===p));renderBacktest();}
+function pctC(v){return v==null?"-":`<span class="${cls(v)}">${(v>0?"+":"")+(v*100).toFixed(2)}%</span>`;}
+function fmtEok(v){return (v/1e8).toFixed(2)+"억";}
+function renderBacktest(){
+  if(!BACKTEST){document.getElementById("btWrap").innerHTML='<p class="muted">백테스트 데이터를 불러오지 못했습니다.</p>';return;}
+  const data=BACKTEST[btPeriod];
+  document.getElementById("periodNote").textContent=`${data.start} ~ ${data.end}`+(data.note?` · ${data.note}`:"");
+  renderChart(data);renderMetricTable(data);renderCalTable(data);renderCostTable();renderRebalTable();
+  document.getElementById("btDisc").innerHTML=`⚠️ 그래프·핵심지표·연도별은 <b>총수익(비용·세금 제외)</b> 기준이며, 거래비용·세금은 아래 '비용·세금' 표에만 반영했습니다. 적용 환율 ${Math.round(BACKTEST.fx.start).toLocaleString()} → ${Math.round(BACKTEST.fx.end).toLocaleString()}원. 월별 무료 비공식 데이터 기반 단순화 모델 — 과거 성과는 미래를 보장하지 않습니다.`;
+}
+function renderChart(data){
+  const pf=data.portfolios, labels=pf[0].series.map(pt=>pt[0]), n=labels.length;
+  const W=820,H=360,PL=66,PR=16,PT=18,PB=30;
+  const allVals=pf.flatMap(p=>p.series.map(pt=>pt[1])); const lo=Math.min(...allVals),hi=Math.max(...allVals);
+  const useLog=(hi/lo)>12;
+  const span=v=>useLog?(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo)):(v-lo)/(hi-lo);
+  const yOf=v=>PT+(H-PT-PB)*(1-span(v)); const xOf=i=>PL+(W-PL-PR)*(i/(n-1));
+  let ticks=[];
+  if(useLog){for(const b of[1,2,5])for(let e=8;e<=12;e++){const val=b*Math.pow(10,e);if(val>=lo*0.85&&val<=hi*1.15)ticks.push(val);}ticks.sort((a,b)=>a-b);}
+  else{for(let i=0;i<=5;i++)ticks.push(lo+(hi-lo)*i/5);}
+  const fmtY=v=>{const e=v/1e8;return e>=1?e.toFixed(e>=10?0:1)+"억":Math.round(v/1e4)+"만";};
+  const gridY=ticks.map(t=>`<line x1="${PL}" y1="${yOf(t).toFixed(1)}" x2="${W-PR}" y2="${yOf(t).toFixed(1)}" stroke="#22304a" stroke-width="1" opacity="0.4"/><text x="${PL-8}" y="${(yOf(t)+4).toFixed(1)}" fill="#90a0bb" font-size="11" text-anchor="end">${fmtY(t)}</text>`).join("");
+  let prevY=null,yearLines="";
+  labels.forEach((lb,i)=>{const y=lb.slice(0,4);if(y!==prevY){prevY=y;const x=xOf(i);yearLines+=`<line x1="${x.toFixed(1)}" y1="${PT}" x2="${x.toFixed(1)}" y2="${H-PB}" stroke="#22304a" stroke-width="1" opacity="0.5"/><text x="${x.toFixed(1)}" y="${H-PB+16}" fill="#90a0bb" font-size="11" text-anchor="middle">${y}</text>`;}});
+  const seedLine=(1e8>=lo&&1e8<=hi)?`<line x1="${PL}" y1="${yOf(1e8).toFixed(1)}" x2="${W-PR}" y2="${yOf(1e8).toFixed(1)}" stroke="#90a0bb" stroke-dasharray="4 4" stroke-width="1" opacity="0.7"/>`:"";
+  const paths=pf.map(p=>{const d=p.series.map((pt,i)=>`${i===0?"M":"L"}${xOf(i).toFixed(1)},${yOf(pt[1]).toFixed(1)}`).join(" ");return `<path d="${d}" fill="none" stroke="${p.color}" stroke-width="2.4"/>`;}).join("");
+  document.getElementById("chart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${gridY}${yearLines}${seedLine}${paths}</svg>`;
+  document.getElementById("scaleNote").textContent=useLog?"· 로그 스케일":"";
+  document.getElementById("chartLegend").innerHTML=pf.map(p=>{const mult=p.series[p.series.length-1][1]/p.series[0][1];return `<span><i style="background:${p.color}"></i>${p.name} ×${mult.toFixed(2)}</span>`;}).join("");
+}
+function renderMetricTable(data){
+  const pf=data.portfolios;
+  const rows=[["최종 평가금액",p=>fmtEok(p.metrics.final)],["누적 수익률",p=>pctC(p.metrics.total)],["CAGR(연환산)",p=>pctC(p.metrics.cagr)],
+    ["연 변동성",p=>(p.metrics.vol*100).toFixed(1)+"%"],["최대낙폭(MDD)",p=>pctC(p.metrics.mdd)],["샤프지수",p=>p.metrics.sharpe.toFixed(2)]];
+  let h=`<table><thead><tr><th>지표</th>${pf.map(p=>`<th>${p.name}</th>`).join("")}</tr></thead><tbody>`;
+  rows.forEach(([lb,fn])=>h+=`<tr><td>${lb}</td>${pf.map(p=>`<td>${fn(p)}</td>`).join("")}</tr>`);
+  document.getElementById("metricTable").innerHTML=h+`</tbody></table>`;
+}
+function renderCalTable(data){
+  const pf=data.portfolios,ys=new Set();pf.forEach(p=>Object.keys(p.calendar).forEach(y=>ys.add(y)));
+  let years=[...ys].sort().filter(y=>!pf.every(p=>p.calendar[y]==null||Math.abs(p.calendar[y])<0.0005));
+  const endY=data.end.slice(0,4),endM=parseInt(data.end.slice(5,7));
+  let h=`<table><thead><tr><th>연도</th>${pf.map(p=>`<th>${p.name}</th>`).join("")}</tr></thead><tbody>`;
+  years.forEach(y=>{const sfx=(y===endY&&endM<12)?" (YTD)":"";h+=`<tr><td>${y}${sfx}</td>${pf.map(p=>`<td>${p.calendar[y]!=null?pctC(p.calendar[y]):"-"}</td>`).join("")}</tr>`;});
+  document.getElementById("calTable").innerHTML=h+`</tbody></table>`;
+}
+function renderCostTable(){
+  const c=BACKTEST.costs.portfolios;
+  let h=`<table><thead><tr><th>포트폴리오</th><th>총수익</th><th>순수익</th><th>드래그</th><th>누적 세금</th></tr></thead><tbody>`;
+  c.forEach(p=>{const drag=(p.gross.cagr-p.net.cagr)*100;h+=`<tr><td>${p.name}</td><td>${pctC(p.gross.cagr)}</td><td>${pctC(p.net.cagr)}</td><td class="down">-${drag.toFixed(2)}%p</td><td>${fmtEok(p.taxPaid)}</td></tr>`;});
+  document.getElementById("costTable").innerHTML=h+`</tbody></table>`;
+}
+function renderRebalTable(){
+  const r=BACKTEST.rebalance.portfolios;
+  let h=`<table><thead><tr><th>포트폴리오 <span class="muted" style="font-weight:400">(CAGR/MDD)</span></th><th>미실시</th><th>연 1회</th><th>분기</th></tr></thead><tbody>`;
+  r.forEach(p=>{h+=`<tr><td>${p.name}</td>`+["none","annual","quarterly"].map(m=>`<td>${pctC(p.modes[m].cagr)}<br><span class="muted">${(p.modes[m].mdd*100).toFixed(1)}%</span></td>`).join("")+`</tr>`;});
+  document.getElementById("rebalTable").innerHTML=h+`</tbody></table>`;
+}
+
+// ---------- 인증 ----------
+function openAuth(tab){document.getElementById("authModal").classList.add("show");authTab(tab||"login");}
+function closeAuth(){document.getElementById("authModal").classList.remove("show");document.getElementById("authError").textContent="";}
+function authTab(t){
+  document.getElementById("mtab-login").classList.toggle("on",t==="login");
+  document.getElementById("mtab-signup").classList.toggle("on",t==="signup");
+  document.getElementById("form-login").style.display=t==="login"?"block":"none";
+  document.getElementById("form-signup").style.display=t==="signup"?"block":"none";
+  document.getElementById("authError").textContent="";
+}
+function authErr(m){document.getElementById("authError").textContent=m;}
+async function doLogin(){
+  try{ await Polaris.API.login({email:document.getElementById("li-email").value.trim(),password:document.getElementById("li-pw").value}); }
+  catch(e){ authErr(e.message); return; }
+  location.href="dashboard.html";
+}
+async function doSignup(){
+  const seedv=parseInt((document.getElementById("su-seed").value||"0").replace(/[^0-9]/g,""),10);
+  try{ await Polaris.API.signup({name:document.getElementById("su-name").value.trim(),email:document.getElementById("su-email").value.trim(),
+    password:document.getElementById("su-pw").value,portfolioId:document.getElementById("su-pid").value,seed:seedv,startDate:document.getElementById("su-start").value}); }
+  catch(e){ authErr(e.message); return; }
+  location.href="dashboard.html";
+}
+async function refreshAuthArea(){
+  const area=document.getElementById("authArea");
+  let me=null; try{ me=await Polaris.API.me(); }catch(e){}
+  if(me&&me.auth){
+    const admin=me.user.role==="admin"?`<a class="ghostbtn" href="admin.html">관리자</a>`:"";
+    area.innerHTML=`<span class="uname">${me.user.name}님</span><a class="cta" href="dashboard.html">내 대시보드</a>${admin}<span class="ghostbtn" onclick="logout()">로그아웃</span>`;
+  }else{
+    area.innerHTML=`<span class="ghostbtn" onclick="openAuth('login')">로그인</span><span class="cta" onclick="openAuth('signup')">회원가입</span>`;
+  }
+}
+function logout(){ Polaris.API.logout(); location.reload(); }
+(function initAuthForm(){
+  const sel=document.getElementById("su-pid");
+  sel.innerHTML=PORTFOLIOS.map(p=>`<option value="${p.id}">${p.name} · ${p.target}</option>`).join(""); sel.value="balanced";
+  document.getElementById("su-start").value=new Date().toISOString().slice(0,10);
+  const s=document.getElementById("su-seed");
+  s.addEventListener("input",()=>{const n=s.value.replace(/[^0-9]/g,"");s.value=n?parseInt(n,10).toLocaleString("ko-KR"):"";});
+})();
+
+// ---------- 초기화 ----------
+(async function(){
+  await Polaris.seedOwner();
+  refreshAuthArea();
+  try{ BACKTEST=await (await fetch("backtest_data.json")).json(); }catch(e){}
+  renderBacktest();
+  ensureFx();
+})();
+</script>
+</body>
+</html>

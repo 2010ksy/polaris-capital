@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>관리자 · 북극성 자산운용</title>
+<style>
+  :root{--bg:#0a0f1c;--card:#121c30;--border:#22304a;--text:#eaf0fa;--muted:#90a0bb;
+    --gold:#d9b46a;--gold2:#f0d59a;--up:#22c55e;--down:#f6465d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 18px 60px}
+  nav{border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+  .brand{font-weight:800}.brand .s{color:var(--gold)}
+  .navbtns a,.navbtns span{padding:7px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--muted);margin-left:8px}
+  h1{font-size:24px;margin:26px 0 4px}.sub{color:var(--muted);margin-bottom:20px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .card .k{font-size:12px;color:var(--muted)}.card .v{font-size:24px;font-weight:800;margin-top:6px;color:var(--gold2)}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:8px 18px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:11px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-size:12px}th:first-child,td:first-child{text-align:left}
+  th:nth-child(2),td:nth-child(2){text-align:left}
+  .up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}
+  .tag{font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--border)}
+  .tag.admin{color:var(--gold2);border-color:var(--gold)}
+  .del{color:var(--down);cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:3px 9px}
+  .loading{color:var(--muted);padding:50px;text-align:center}
+</style></head>
+<body>
+<nav><div class="wrap">
+  <div class="brand"><span class="s">✦</span> 북극성 자산운용 · 관리자</div>
+  <div class="navbtns"><a href="dashboard.html">내 대시보드</a><a href="/">홈</a><span onclick="logout()">로그아웃</span></div>
+</div></nav>
+<div class="wrap" id="root"><div class="loading">불러오는 중…</div></div>
+
+<script src="assets/core.js"></script>
+<script>
+const won=v=>v==null?"-":Math.round(v).toLocaleString("ko-KR")+"원";
+const eok=v=>v==null?"-":(v/1e8).toFixed(2)+"억";
+const pct=v=>v==null?"-":(v>0?"+":"")+(v*100).toFixed(2)+"%";
+const cls=v=>v>0?"up":v<0?"down":"muted";
+
+async function boot(){
+  await Polaris.seedOwner();
+  const root=document.getElementById("root");
+  let users;
+  try{ users=await Polaris.API.adminUsers(); }
+  catch(e){ root.innerHTML=`<h1>접근 불가</h1><p class="sub">관리자 권한이 필요합니다. <a href="/">홈으로</a></p>`; return; }
+  render(users);
+}
+function logout(){ Polaris.API.logout(); location.href="/"; }
+
+function render(users){
+  const members=users.filter(u=>u.value!=null);
+  const aum=members.reduce((a,u)=>a+u.value,0);
+  const invested=members.reduce((a,u)=>a+(u.seed||0),0);
+  const avgRet=members.length?members.reduce((a,u)=>a+u.ret,0)/members.length:0;
+  const rows=users.map(u=>`<tr>
+    <td>${u.id}</td><td>${u.name}<br><span class="muted" style="font-size:11px">${u.email}</span></td>
+    <td><span class="tag ${u.role}">${u.role==="admin"?"관리자":"고객"}</span></td>
+    <td>${u.portfolio||"-"}</td><td>${u.seed!=null?won(u.seed):"-"}</td>
+    <td>${u.value!=null?won(u.value):"-"}</td>
+    <td class="${u.ret!=null?cls(u.ret):''}">${u.ret!=null?pct(u.ret):"-"}</td>
+    <td class="muted" style="font-size:12px">${(u.joined||"").slice(0,10)}</td>
+    <td>${u.role==="admin"?'<span class="muted">-</span>':`<span class="del" onclick="del(${u.id},'${u.name}')">삭제</span>`}</td></tr>`).join("");
+  document.getElementById("root").innerHTML=`
+    <h1>회원 관리</h1><div class="sub">전체 회원 ${users.length}명 · 실시간 평가 기준 (이 브라우저 저장 데이터)</div>
+    <div class="cards">
+      <div class="card"><div class="k">총 회원수</div><div class="v">${users.length}명</div></div>
+      <div class="card"><div class="k">총 운용자산(AUM)</div><div class="v">${eok(aum)}</div></div>
+      <div class="card"><div class="k">총 투자원금</div><div class="v">${eok(invested)}</div></div>
+      <div class="card"><div class="k">평균 수익률</div><div class="v ${cls(avgRet)}">${pct(avgRet)}</div></div>
+    </div>
+    <div class="panel"><table>
+      <thead><tr><th>ID</th><th>회원</th><th>권한</th><th>상품</th><th>투자원금</th><th>평가금액</th><th>수익률</th><th>가입일</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+function del(id,name){
+  if(!confirm(`${name} 회원을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+  try{ Polaris.API.adminDelete(id); }catch(e){ alert(e.message); return; }
+  boot();
+}
+boot();
+</script>
+</body></html>

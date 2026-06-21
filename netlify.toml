@@ -1,0 +1,10 @@
+# 북극성 자산운용 — Netlify 설정
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# 시세 프록시 함수에 깔끔한 경로 부여: /api/market → 함수
+[[redirects]]
+  from = "/api/market"
+  to = "/.netlify/functions/market"
+  status = 200
