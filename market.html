@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>실시간 시장 동향 · 북극성 자산운용</title>
+<style>
+  :root{--bg:#0a0f1c;--bg2:#0e1626;--card:#121c30;--card2:#16223a;--border:#22304a;
+    --text:#eaf0fa;--muted:#90a0bb;--gold:#d9b46a;--gold2:#f0d59a;--accent:#4b8bff;--up:#22c55e;--down:#f6465d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 18px 60px}
+  nav{position:sticky;top:0;z-index:30;background:rgba(10,15,28,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  nav .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;padding:0 18px}
+  .brand{font-weight:800;letter-spacing:.4px}.brand .s{color:var(--gold)}
+  .navbtns{display:flex;gap:10px;align-items:center;font-size:14px;flex-wrap:wrap}
+  .navbtns a,.navbtns span{padding:7px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--muted)}
+  h1{font-size:24px;margin:26px 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+  .up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--muted)}.muted{color:var(--muted)}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:18px}
+  .panel h2{font-size:17px;margin-bottom:14px}
+  .tone{display:flex;gap:14px;align-items:center;border-radius:16px;padding:18px 20px;margin-top:16px;border:1px solid var(--border);background:var(--card)}
+  .tone .em{font-size:30px}
+  .tone .t{font-size:18px;font-weight:800}.tone .d{color:var(--muted);font-size:13.5px}
+  .tone.on{border-color:#1c6b3a;background:linear-gradient(90deg,rgba(34,197,94,.12),transparent)}
+  .tone.off{border-color:#7a2230;background:linear-gradient(90deg,rgba(246,70,93,.12),transparent)}
+  .grp{font-size:12px;color:var(--muted);margin:18px 0 8px;letter-spacing:.4px}
+  .idxgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+  .idx{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .idx .nm{font-size:13px;color:var(--muted)}
+  .idx .v{font-size:23px;font-weight:800;margin-top:4px}
+  .idx .c{font-size:13.5px;font-weight:700;margin-top:2px}
+  .idx svg{display:block;width:100%;height:42px;margin-top:8px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-size:12px;font-weight:600}th:first-child,td:first-child{text-align:left}
+  .mk{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 5px;margin-right:6px}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.twocol{grid-template-columns:1fr}}
+  .guide{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .guide li{display:flex;gap:10px;align-items:flex-start;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .btn{padding:11px 18px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:14px}
+  .btn.gold{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  .disc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-top:18px}
+  .loading{color:var(--muted);padding:50px;text-align:center}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--up);margin-right:6px;vertical-align:middle;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media print{nav,.btns,.noprint{display:none!important}
+    body{background:#fff;color:#000}.panel,.idx,.tone,.guide li{background:#fff;border-color:#bbb;color:#000}
+    .muted,.idx .nm,th{color:#444}h1{margin-top:0}}
+</style></head>
+<body>
+<nav><div class="wrap">
+  <div class="brand"><span class="s">✦</span> 북극성 자산운용</div>
+  <div class="navbtns" id="navbtns"><a href="/">홈</a></div>
+</div></nav>
+<div class="wrap" id="root"><div class="loading">시장 데이터를 불러오는 중…</div></div>
+
+<script src="assets/config.js"></script>
+<script src="assets/core.js"></script>
+<script>
+const API="/api/market";
+const num=(v,d=2)=>v==null?"-":Number(v).toLocaleString("ko-KR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=v=>v==null?"-":(v>0?"+":"")+v.toFixed(2)+"%";
+const cls=v=>v==null?"flat":v>0?"up":v<0?"down":"flat";
+const sgn=v=>v==null?"":v>0?"▲":v<0?"▼":"-";
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+let DATA=null, timer=null;
+
+// 지수/환율 정의
+const INDICES=[
+  {key:"spx",symbol:"^GSPC",label:"S&P 500",group:"US",d:2},
+  {key:"ixic",symbol:"^IXIC",label:"나스닥 종합",group:"US",d:2},
+  {key:"dji",symbol:"^DJI",label:"다우존스",group:"US",d:2},
+  {key:"kospi",symbol:"^KS11",label:"코스피",group:"KR",d:2},
+  {key:"kosdaq",symbol:"^KQ11",label:"코스닥",group:"KR",d:2},
+  {key:"vix",symbol:"^VIX",label:"VIX 변동성지수",group:"ETC",d:2},
+  {key:"fx",symbol:"USDKRW=X",label:"원/달러 환율",group:"ETC",d:1},
+];
+const US_WATCH=[["AAPL","애플"],["MSFT","마이크로소프트"],["NVDA","엔비디아"],["GOOGL","알파벳"],["AMZN","아마존"],["META","메타"],["TSLA","테슬라"]];
+const KR_WATCH=[["005930","삼성전자"],["000660","SK하이닉스"],["035420","NAVER"],["035720","카카오"],["373220","LG에너지솔루션"],["105560","KB금융"]];
+
+async function jget(u){const r=await fetch(u);const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||"HTTP "+r.status);return j;}
+async function yChart(symbol,interval,range){
+  const j=await jget(`${API}?provider=yahoo&symbol=${encodeURIComponent(symbol)}&interval=${interval}&range=${range}`);
+  const r=j.chart.result[0],m=r.meta,ts=r.timestamp||[];
+  const q=(r.indicators&&r.indicators.quote&&r.indicators.quote[0])||{},closes=q.close||[];
+  const series=[];ts.forEach((t,i)=>{if(closes[i]!=null)series.push(closes[i]);});
+  const price=m.regularMarketPrice!=null?m.regularMarketPrice:(series.length?series[series.length-1]:null);
+  const prev=m.chartPreviousClose!=null?m.chartPreviousClose:m.previousClose;
+  return {price,prev,changePct:(price!=null&&prev)?(price-prev)/prev*100:null,name:m.shortName||symbol,series};
+}
+async function usQuote(sym,label){ try{const d=await yChart(sym,"1d","1d");return {sym,label,market:"US",price:d.price,changePct:d.changePct};}catch(e){return null;} }
+async function krQuote(code,label){ try{const j=await jget(`${API}?provider=naver&code=${code}&kind=stock`);const x=(j.datas||[])[0];return {sym:code,label:label||x.stockName,market:"KR",price:parseFloat(x.closePriceRaw),changePct:parseFloat(x.fluctuationsRatioRaw)};}catch(e){return null;} }
+
+async function loadAll(){
+  const idxP=INDICES.map(d=>yChart(d.symbol,"5m","1d").then(r=>({...d,...r})).catch(()=>({...d,price:null,changePct:null,series:[]})));
+  const usP=US_WATCH.map(([s,l])=>usQuote(s,l));
+  const krP=KR_WATCH.map(([c,l])=>krQuote(c,l));
+  const [idx,us,kr]=await Promise.all([Promise.all(idxP),Promise.all(usP),Promise.all(krP)]);
+  const movers=[...us,...kr].filter(Boolean).filter(m=>m.changePct!=null);
+  const byKey=Object.fromEntries(idx.map(d=>[d.key,d]));
+  return {idx,byKey,movers,at:new Date()};
+}
+
+/* ───────── 분석 생성(규칙 기반) ───────── */
+function analyze(d){
+  const g=[], k=d.byKey;
+  const usAvg=avg([k.spx,k.ixic,k.dji].map(x=>x&&x.changePct));
+  const krAvg=avg([k.kospi,k.kosdaq].map(x=>x&&x.changePct));
+  const vix=k.vix&&k.vix.price, fx=k.fx, fxChg=fx&&fx.changePct;
+  const up=d.movers.filter(m=>m.changePct>0).length, down=d.movers.filter(m=>m.changePct<0).length;
+
+  // 종합 톤
+  const overall=avg([usAvg,krAvg].filter(v=>v!=null));
+  let tone="중립", em="🧭", toneCls="";
+  if(overall!=null&&overall>=0.4&&(vix==null||vix<22)){ tone="위험선호(Risk-on)"; em="🟢"; toneCls="on"; }
+  else if(overall!=null&&overall<=-0.4){ tone="위험회피(Risk-off)"; em="🔴"; toneCls="off"; }
+  const toneDesc=`미국 지수 평균 ${pct(usAvg)}, 한국 지수 평균 ${pct(krAvg)} · 관심종목 ${up}↑ / ${down}↓`;
+
+  // 미국
+  if(usAvg!=null) g.push([cls(usAvg), `미국 증시는 평균 ${pct(usAvg)} ${usAvg>=0?"상승":"하락"}했습니다. ${k.ixic&&k.spx?`나스닥 ${pct(k.ixic.changePct)}, S&P500 ${pct(k.spx.changePct)}로 ${Math.abs((k.ixic.changePct||0)-(k.spx.changePct||0))>=0.3?(k.ixic.changePct>k.spx.changePct?"기술주가 시장을 주도":"기술주가 상대적으로 부진"):"대형주 전반이 동조"}하는 흐름입니다.`:""}`]);
+  // 한국
+  if(krAvg!=null) g.push([cls(krAvg), `한국 증시는 코스피 ${pct(k.kospi&&k.kospi.changePct)}, 코스닥 ${pct(k.kosdaq&&k.kosdaq.changePct)}입니다. ${usAvg!=null&&Math.sign(krAvg||0)!==Math.sign(usAvg||0)&&Math.abs(krAvg)>=0.2?"미국과 방향이 엇갈려 디커플링 양상입니다.":"글로벌 흐름과 대체로 동조하고 있습니다."}`]);
+  // VIX
+  if(vix!=null){ const lv=vix<15?["ok","낮아 시장이 안정적"]:vix<20?["ok","보통 수준으로 양호"]:vix<30?["warn","다소 높아 경계가 필요"]:["warn","매우 높아 공포 국면"]; g.push([lv[0],`변동성지수(VIX)는 ${num(vix)}로 ${lv[1]}합니다. ${vix>=20?"단기 변동성 확대에 대비해 분할 대응을 권합니다.":"위험자산 비중 유지가 가능한 환경입니다."}`]); }
+  // 환율
+  if(fxChg!=null){ const wkn=fxChg>0; g.push([wkn?"warn":"ok",`원/달러 환율은 ${num(fx.price,1)}원으로 ${pct(fxChg)} ${wkn?"원화 약세":"원화 강세"}입니다. ${wkn?"보유 중인 미국 자산의 원화 환산 평가에는 우호적이나, 환헤지 미적용 시 변동성에 유의하세요.":"수출주에는 부담이나 미국 자산의 원화 환산에는 중립~소폭 비우호적입니다."}`]); }
+  // 브레드스
+  g.push([up>=down?"ok":"warn",`관심종목 ${d.movers.length}개 중 ${up}개 상승·${down}개 하락으로 시장 폭(breadth)은 ${up>down*1.5?"매우 양호":up>=down?"양호":down>up*1.5?"매우 부진":"다소 부진"}합니다.`]);
+  // 특징주
+  const sorted=[...d.movers].sort((a,b)=>b.changePct-a.changePct);
+  if(sorted.length){ const tg=sorted[0], tl=sorted[sorted.length-1];
+    g.push(["ok",`특징주 — 상승: ${esc(tg.label)} ${pct(tg.changePct)}, 하락: ${esc(tl.label)} ${pct(tl.changePct)}.`]); }
+
+  return {tone,em,toneCls,toneDesc,usAvg,krAvg,guide:g.map(([level,text])=>({level,text}))};
+}
+function avg(a){const v=a.filter(x=>x!=null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;}
+
+/* ───────── 렌더 ───────── */
+function spark(series,up){
+  if(!series||series.length<2) return "";
+  const lo=Math.min(...series),hi=Math.max(...series),W=200,H=42,P=3;
+  const xs=i=>P+(W-2*P)*(i/(series.length-1));
+  const ys=v=>hi===lo?H/2:H-P-(H-2*P)*((v-lo)/(hi-lo));
+  const dd=series.map((v,i)=>`${i?"L":"M"}${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(" ");
+  const col=up>0?"#22c55e":up<0?"#f6465d":"#90a0bb";
+  const base=ys(series[0]);
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="${P}" y1="${base.toFixed(1)}" x2="${W-P}" y2="${base.toFixed(1)}" stroke="#22304a" stroke-dasharray="3 3"/><path d="${dd}" fill="none" stroke="${col}" stroke-width="1.8"/></svg>`;
+}
+function idxCard(d){
+  return `<div class="idx"><div class="nm">${esc(d.label)}</div>
+    <div class="v">${num(d.price,d.d)}</div>
+    <div class="c ${cls(d.changePct)}">${sgn(d.changePct)} ${pct(d.changePct)}${d.price!=null&&d.prev?` <span class="muted">(${d.changePct>=0?"+":""}${num(d.price-d.prev,d.d)})</span>`:""}</div>
+    ${spark(d.series,d.changePct)}</div>`;
+}
+function moverRows(list){
+  return list.map(m=>`<tr><td><span class="mk">${m.market==="US"?"美":"韓"}</span>${esc(m.label)}</td>
+    <td>${m.market==="US"?"$":""}${num(m.price,m.market==="US"?2:0)}${m.market==="KR"?"원":""}</td>
+    <td class="${cls(m.changePct)}">${sgn(m.changePct)} ${pct(m.changePct)}</td></tr>`).join("");
+}
+function render(){
+  const d=DATA, a=analyze(d);
+  const us=d.idx.filter(x=>x.group==="US"), kr=d.idx.filter(x=>x.group==="KR"), etc=d.idx.filter(x=>x.group==="ETC");
+  const sorted=[...d.movers].sort((x,y)=>y.changePct-x.changePct);
+  const gainers=sorted.slice(0,5), losers=sorted.slice(-5).reverse();
+  const at=d.at.toLocaleString("ko-KR",{dateStyle:"medium",timeStyle:"short"});
+  root().innerHTML=`
+    <h1>실시간 시장 동향</h1>
+    <div class="sub"><span class="dot noprint"></span>${at} 기준 · 미국(야후 파이낸스) · 한국(네이버 금융) 데이터 · 60초마다 자동 갱신</div>
+    <div class="tone ${a.toneCls}"><div class="em">${a.em}</div><div><div class="t">시장 종합: ${a.tone}</div><div class="d">${a.toneDesc}</div></div></div>
+
+    <div class="grp">미국 지수</div><div class="idxgrid">${us.map(idxCard).join("")}</div>
+    <div class="grp">한국 지수</div><div class="idxgrid">${kr.map(idxCard).join("")}</div>
+    <div class="grp">변동성 · 환율</div><div class="idxgrid">${etc.map(idxCard).join("")}</div>
+
+    <div class="panel"><h2>시장 분석</h2><ul class="guide">${a.guide.map(g=>`<li><span>${g.level==="warn"?"⚠️":g.level==="down"?"🔻":g.level==="up"?"🔺":"💡"}</span><span>${g.text}</span></li>`).join("")}</ul></div>
+
+    <div class="twocol">
+      <div class="panel"><h2>상승 상위</h2><table><thead><tr><th>종목</th><th>현재가</th><th>등락</th></tr></thead><tbody>${moverRows(gainers)}</tbody></table></div>
+      <div class="panel"><h2>하락 상위</h2><table><thead><tr><th>종목</th><th>현재가</th><th>등락</th></tr></thead><tbody>${moverRows(losers)}</tbody></table></div>
+    </div>
+
+    <div class="btns noprint">
+      <button class="btn" onclick="refresh()">↻ 지금 새로고침</button>
+      <button class="btn gold" onclick="window.print()">📄 리포트 PDF 저장/인쇄</button>
+      <button class="btn" onclick="emailReport()">✉️ 메일로 공유</button>
+    </div>
+    <div class="disc">⚠️ 본 화면은 데모이며 실제 투자 자문이 아닙니다. 시세·지수·환율은 외부 무료 데이터(미국 Yahoo Finance, 한국 네이버 금융)를 사용하며 수 분의 지연·오류가 있을 수 있습니다. 분석은 입력 데이터에 대한 규칙 기반 자동 코멘트입니다.</div>`;
+}
+function root(){return document.getElementById("root");}
+
+/* ───────── 리포트/메일 ───────── */
+function reportText(){
+  const d=DATA,a=analyze(d),k=d.byKey;
+  const at=d.at.toLocaleString("ko-KR",{dateStyle:"medium",timeStyle:"short"});
+  const sorted=[...d.movers].sort((x,y)=>y.changePct-x.changePct);
+  const line=x=>x?`${x.label}: ${num(x.price,x.d)} (${pct(x.changePct)})`:"";
+  return [
+    `[북극성 자산운용] 실시간 시장 동향 리포트`,
+    `${at} 기준`,``,
+    `■ 시장 종합: ${a.tone}`,
+    `  ${a.toneDesc}`,``,
+    `■ 미국 지수`,
+    `  - ${line(k.spx)}`,`  - ${line(k.ixic)}`,`  - ${line(k.dji)}`,``,
+    `■ 한국 지수`,
+    `  - ${line(k.kospi)}`,`  - ${line(k.kosdaq)}`,``,
+    `■ 변동성·환율`,
+    `  - ${line(k.vix)}`,`  - ${line(k.fx)}`,``,
+    `■ 시장 분석`,
+    ...a.guide.map(g=>`  - ${g.text}`),``,
+    `■ 상승 상위`,
+    ...sorted.slice(0,5).map(m=>`  - ${m.label} ${pct(m.changePct)}`),
+    `■ 하락 상위`,
+    ...sorted.slice(-5).reverse().map(m=>`  - ${m.label} ${pct(m.changePct)}`),``,
+    `※ 외부 무료 데이터 기반 추정치이며 과거·현재 성과는 미래를 보장하지 않습니다.`,
+  ].join("\n");
+}
+function emailReport(){
+  let to=""; try{ /* 로그인 시 본인 메일로 기본 수신 */ }catch(e){}
+  const subj=`북극성 자산운용 시장 동향 리포트 - ${DATA.at.toLocaleDateString("ko-KR")}`;
+  location.href=`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
+}
+
+/* ───────── 부트/갱신 ───────── */
+async function refresh(){
+  try{ DATA=await loadAll(); render(); }
+  catch(e){ root().innerHTML=`<h1>실시간 시장 동향</h1><div class="disc down">시장 데이터를 불러오지 못했습니다: ${esc(e.message)} <button class="btn" onclick="refresh()" style="margin-left:8px">다시 시도</button></div>`; }
+}
+async function renderNav(){
+  let me=null; try{ await Polaris.seedOwner(); me=await Polaris.API.me(); }catch(e){}
+  const dash=me&&me.auth?`<a href="dashboard.html">내 대시보드</a>`:"";
+  const admin=me&&me.auth&&me.user.role==="admin"?`<a href="admin.html">관리자</a>`:"";
+  const auth=me&&me.auth?`<span class="muted" style="border:none">${esc(me.user.name)}님</span>`:"";
+  document.getElementById("navbtns").innerHTML=`${auth}<a href="/">홈</a>${dash}${admin}`;
+  // 본인 메일을 메일 공유 기본 수신자로
+  if(me&&me.auth&&me.user.email){ window.__myEmail=me.user.email; }
+}
+async function boot(){
+  renderNav();
+  await refresh();
+  if(timer) clearInterval(timer);
+  timer=setInterval(refresh,60000);
+}
+// 로그인 사용자가 있으면 메일 기본 수신자 채우기
+const _origEmail=emailReport;
+emailReport=function(){
+  const to=window.__myEmail||"";
+  const subj=`북극성 자산운용 시장 동향 리포트 - ${DATA.at.toLocaleDateString("ko-KR")}`;
+  location.href=`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
+};
+boot();
+</script>
+</body></html>

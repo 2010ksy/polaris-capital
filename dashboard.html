@@ -103,7 +103,7 @@ async function boot(){
 function renderNav(){
   const admin=ME.user.role==="admin"?`<a href="admin.html">관리자</a>`:"";
   document.getElementById("navbtns").innerHTML=
-    `<span class="muted" style="border:none">${esc(ME.user.name)}님</span><a href="/">홈</a>${admin}<span onclick="logout()">로그아웃</span>`;
+    `<span class="muted" style="border:none">${esc(ME.user.name)}님</span><a href="market.html">시장동향</a><a href="/">홈</a>${admin}<span onclick="logout()">로그아웃</span>`;
 }
 function logout(){ Polaris.API.logout(); location.href="/"; }
 function root(){ return document.getElementById("root"); }
