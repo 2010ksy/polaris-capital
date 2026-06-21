@@ -3,7 +3,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>관리자 · 북극성 자산운용</title>
 <style>
-  :root{--bg:#0a0f1c;--card:#121c30;--border:#22304a;--text:#eaf0fa;--muted:#90a0bb;
+  :root{--bg:#0a0f1c;--bg2:#0e1626;--card:#121c30;--border:#22304a;--text:#eaf0fa;--muted:#90a0bb;
     --gold:#d9b46a;--gold2:#f0d59a;--up:#22c55e;--down:#f6465d;}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
@@ -14,10 +14,12 @@
   .brand{font-weight:800}.brand .s{color:var(--gold)}
   .navbtns a,.navbtns span{padding:7px 13px;border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--muted);margin-left:8px}
   h1{font-size:24px;margin:26px 0 4px}.sub{color:var(--muted);margin-bottom:20px}
+  h2{font-size:18px;margin:30px 0 12px}
   .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
   .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
   .card .k{font-size:12px;color:var(--muted)}.card .v{font-size:24px;font-weight:800;margin-top:6px;color:var(--gold2)}
   .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:8px 18px;overflow-x:auto}
+  .panel.pad{padding:18px}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th,td{padding:11px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
   th{color:var(--muted);font-size:12px}th:first-child,td:first-child{text-align:left}
@@ -27,6 +29,22 @@
   .tag.admin{color:var(--gold2);border-color:var(--gold)}
   .del{color:var(--down);cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:3px 9px}
   .loading{color:var(--muted);padding:50px;text-align:center}
+  .btn{padding:10px 16px;border-radius:9px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:#16223a;color:var(--text);font-size:14px}
+  .btn.gold{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  .btn.sm{padding:6px 11px;font-size:12.5px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--muted)}
+  input,select{padding:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit}
+  .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+  .hrow{display:grid;grid-template-columns:90px 1fr 1fr 90px 34px;gap:8px;align-items:center;margin:6px 0}
+  .hrow .x{cursor:pointer;color:var(--down);text-align:center;border:1px solid var(--border);border-radius:8px;padding:9px 0}
+  .hhead{display:grid;grid-template-columns:90px 1fr 1fr 90px 34px;gap:8px;font-size:11px;color:var(--muted)}
+  .wsum{font-weight:700;margin:10px 0}
+  .plist{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:18px}
+  .pitem{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .pitem h3{font-size:15px}.pitem .meta{font-size:12px;color:var(--muted);margin:4px 0}
+  .err{color:var(--down);font-size:13px;margin-top:8px}
+  @media(max-width:640px){.hrow,.hhead{grid-template-columns:70px 1fr 80px 60px 30px}}
 </style></head>
 <body>
 <nav><div class="wrap">
@@ -42,6 +60,9 @@ const won=v=>v==null?"-":Math.round(v).toLocaleString("ko-KR")+"원";
 const eok=v=>v==null?"-":(v/1e8).toFixed(2)+"억";
 const pct=v=>v==null?"-":(v>0?"+":"")+(v*100).toFixed(2)+"%";
 const cls=v=>v>0?"up":v<0?"down":"muted";
+const mkLabel=m=>m==="CASH"?"현금":m==="US"?"美":m==="KR"?"韓":"기타";
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+let NEWHOLD=[];
 
 async function boot(){
   await Polaris.seedOwner();
@@ -57,26 +78,102 @@ function render(users){
   const members=users.filter(u=>u.value!=null);
   const aum=members.reduce((a,u)=>a+u.value,0);
   const invested=members.reduce((a,u)=>a+(u.seed||0),0);
-  const avgRet=members.length?members.reduce((a,u)=>a+u.ret,0)/members.length:0;
+  const rets=members.filter(u=>u.ret!=null);
+  const avgRet=rets.length?rets.reduce((a,u)=>a+u.ret,0)/rets.length:0;
+  const subs=users.reduce((a,u)=>a+(u.count||0),0);
   const rows=users.map(u=>`<tr>
-    <td>${u.id}</td><td>${u.name}<br><span class="muted" style="font-size:11px">${u.email}</span></td>
+    <td>${u.id}</td><td>${esc(u.name)}<br><span class="muted" style="font-size:11px">${esc(u.email)}</span></td>
     <td><span class="tag ${u.role}">${u.role==="admin"?"관리자":"고객"}</span></td>
-    <td>${u.portfolio||"-"}</td><td>${u.seed!=null?won(u.seed):"-"}</td>
+    <td>${u.count||0}개${u.products&&u.products.length?`<br><span class="muted" style="font-size:11px">${esc(u.products.join(", "))}</span>`:""}</td>
+    <td>${u.seed!=null?won(u.seed):"-"}</td>
     <td>${u.value!=null?won(u.value):"-"}</td>
     <td class="${u.ret!=null?cls(u.ret):''}">${u.ret!=null?pct(u.ret):"-"}</td>
     <td class="muted" style="font-size:12px">${(u.joined||"").slice(0,10)}</td>
     <td>${u.role==="admin"?'<span class="muted">-</span>':`<span class="del" onclick='del(${JSON.stringify(u.id)}, ${JSON.stringify(u.name)})'>삭제</span>`}</td></tr>`).join("");
+
+  const products=Polaris.listProducts();
+  const pitems=products.map(p=>`<div class="pitem">
+    <h3>${esc(p.name)} ${p.custom?'<span class="tag">커스텀</span>':'<span class="tag" style="color:var(--muted)">기본</span>'}</h3>
+    <div class="meta">${esc(p.tag)} · ${p.target} · 위험 ${p.risk}/5 · 자산 ${p.holdings.length}종</div>
+    <div class="meta">${p.holdings.map(h=>esc(h.label)+" "+h.weight+"%").join(" · ")}</div>
+    ${p.custom?`<button class="btn sm" style="color:var(--down)" onclick='delProduct(${JSON.stringify(p.id)})'>상품 삭제</button>`:""}
+  </div>`).join("");
+
   document.getElementById("root").innerHTML=`
-    <h1>회원 관리</h1><div class="sub">전체 회원 ${users.length}명 · 실시간 평가 기준 (이 브라우저 저장 데이터)</div>
+    <h1>관리자 콘솔</h1><div class="sub">전체 회원 ${users.length}명 · 가입 상품 ${subs}건 · 실시간 평가 기준 (이 브라우저 저장 데이터)</div>
     <div class="cards">
       <div class="card"><div class="k">총 회원수</div><div class="v">${users.length}명</div></div>
       <div class="card"><div class="k">총 운용자산(AUM)</div><div class="v">${eok(aum)}</div></div>
       <div class="card"><div class="k">총 투자원금</div><div class="v">${eok(invested)}</div></div>
       <div class="card"><div class="k">평균 수익률</div><div class="v ${cls(avgRet)}">${pct(avgRet)}</div></div>
     </div>
+
+    <h2>회원 관리</h2>
     <div class="panel"><table>
-      <thead><tr><th>ID</th><th>회원</th><th>권한</th><th>상품</th><th>투자원금</th><th>평가금액</th><th>수익률</th><th>가입일</th><th></th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+      <thead><tr><th>ID</th><th>회원</th><th>권한</th><th>가입상품</th><th>투자원금(합)</th><th>평가금액(합)</th><th>수익률</th><th>가입일</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+
+    <h2>상품 관리</h2>
+    <div class="plist">${pitems}</div>
+    <div class="panel pad">
+      <h3 style="font-size:15px;margin-bottom:12px">+ 커스텀 상품 추가</h3>
+      <div class="formgrid">
+        <div class="field"><label>상품명</label><input id="np-name" placeholder="예: 배당형"></div>
+        <div class="field"><label>태그</label><input id="np-tag" placeholder="예: Dividend"></div>
+        <div class="field"><label>목표수익률(표시)</label><input id="np-target" placeholder="예: 연 6~9%"></div>
+        <div class="field"><label>기대수익률 중앙값(%)</label><input id="np-mid" inputmode="decimal" placeholder="예: 8"></div>
+        <div class="field"><label>위험도(1~5)</label><input id="np-risk" inputmode="numeric" placeholder="3"></div>
+      </div>
+      <div class="field" style="margin-bottom:12px"><label>상품 설명</label><input id="np-desc" placeholder="상품 한 줄 설명"></div>
+      <div class="hhead"><div>시장</div><div>종목코드</div><div>종목명</div><div>비중(%)</div><div></div></div>
+      <div id="np-holdings"></div>
+      <div style="margin-top:6px"><button class="btn sm" onclick="addHold()">+ 자산 추가</button></div>
+      <div class="wsum" id="np-wsum"></div>
+      <button class="btn gold" onclick="addProduct()">상품 추가</button>
+      <div class="err" id="np-err"></div>
+      <p class="muted" style="font-size:12px;margin-top:10px">※ 미국 종목은 야후 심볼(AAPL 등), 한국 종목은 6자리 코드(005930), 현금은 시장을 '현금'으로 선택하세요. 비중 합계는 100%여야 합니다.</p>
+    </div>`;
+  if(!NEWHOLD.length) NEWHOLD=[{market:"KR",code:"",label:"",weight:""},{market:"CASH",code:"CASH",label:"현금성 자산",weight:""}];
+  renderHold();
+}
+
+function renderHold(){
+  document.getElementById("np-holdings").innerHTML=NEWHOLD.map((h,i)=>`<div class="hrow">
+    <select onchange="setHold(${i},'market',this.value)">
+      ${["KR","US","CASH","ETC"].map(m=>`<option value="${m}" ${h.market===m?"selected":""}>${mkLabel(m)}</option>`).join("")}
+    </select>
+    <input placeholder="${h.market==='CASH'?'CASH':h.market==='US'?'AAPL':'005930'}" value="${esc(h.code)}" oninput="setHold(${i},'code',this.value)">
+    <input placeholder="종목명" value="${esc(h.label)}" oninput="setHold(${i},'label',this.value)">
+    <input inputmode="decimal" placeholder="0" value="${h.weight}" oninput="setHold(${i},'weight',this.value)">
+    <div class="x" onclick="rmHold(${i})">✕</div></div>`).join("");
+  wsum();
+}
+function setHold(i,k,v){ NEWHOLD[i][k]=v; if(k==="weight"||k==="market")wsum(); }
+function addHold(){ NEWHOLD.push({market:"KR",code:"",label:"",weight:""}); renderHold(); }
+function rmHold(i){ NEWHOLD.splice(i,1); if(!NEWHOLD.length)NEWHOLD.push({market:"KR",code:"",label:"",weight:""}); renderHold(); }
+function wsum(){ const s=NEWHOLD.reduce((a,h)=>a+(parseFloat(h.weight)||0),0);
+  document.getElementById("np-wsum").innerHTML=`비중 합계: <span class="${Math.abs(s-100)<0.5?'up':'down'}">${s.toFixed(1)}%</span> ${Math.abs(s-100)<0.5?"":"(100%로 맞춰주세요)"}`; }
+
+function addProduct(){
+  const err=document.getElementById("np-err"); err.textContent="";
+  const holdings=NEWHOLD.map(h=>({market:h.market,code:(h.code||"").trim()||(h.market==="CASH"?"CASH":(h.label||"").trim()),label:(h.label||"").trim()||h.code,weight:parseFloat(h.weight)||0})).filter(h=>h.weight>0);
+  try{
+    Polaris.API.adminAddProduct({
+      name:document.getElementById("np-name").value,
+      tag:document.getElementById("np-tag").value,
+      target:document.getElementById("np-target").value,
+      mid:(parseFloat(document.getElementById("np-mid").value)||0)/100,
+      risk:parseInt(document.getElementById("np-risk").value,10),
+      desc:document.getElementById("np-desc").value,
+      holdings,
+    });
+  }catch(e){ err.textContent=e.message; return; }
+  NEWHOLD=[]; boot();
+}
+function delProduct(id){
+  if(!confirm("이 커스텀 상품을 삭제할까요? (이미 가입한 고객의 계정은 유지됩니다)")) return;
+  try{ Polaris.API.adminDeleteProduct(id); }catch(e){ alert(e.message); return; }
+  boot();
 }
 function del(id,name){
   if(!confirm(`${name} 회원을 삭제할까요? 되돌릴 수 없습니다.`)) return;

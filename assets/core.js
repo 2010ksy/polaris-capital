@@ -2,8 +2,14 @@
  *
  * 서버(Python+SQLite) 없이 브라우저에서 동작:
  *  - 시세/환율/월별 데이터: Netlify Function(/api/market) 프록시 경유
- *  - 회원/계정 데이터: localStorage (비밀번호는 WebCrypto PBKDF2 해싱)
+ *  - 회원/계정/상품/자산스냅샷: localStorage (비밀번호는 WebCrypto PBKDF2 해싱)
  *  - 포트폴리오 평가·예상수익·가이드 계산을 클라이언트에서 수행
+ *
+ * 다중 가입 구조:
+ *  - 한 고객(user)이 여러 상품(subscription/account)에 가입할 수 있다.
+ *  - 관리자는 커스텀 상품을 추가/삭제할 수 있다.
+ *  - 미가입 고객은 현재 보유 자산을 점검(snapshot)하고, 그 총평가액을
+ *    선택한 상품 비중으로 자동 배분(전환)하여 가입할 수 있다.
  *
  * window.Polaris 로 노출.
  */
@@ -15,6 +21,7 @@
     slogan: "데이터로 항해하는 자산관리", seed: 100000000, founded: 2026,
   };
 
+  // 기본(빌트인) 모델 포트폴리오
   const PORTFOLIOS = [
     { id: "stable", name: "안정형", tag: "Conservative", risk: 2, target: "연 5~7%", mid: 0.06,
       desc: "변동성을 낮추고 자본을 지키는 데 초점. 우량 대형주와 지수 ETF, 넉넉한 현금성 자산.",
@@ -109,7 +116,8 @@
     return all.length ? map[Math.min(...all)] : null;
   }
   function ySymbol(market, code) {
-    return market === "US" ? code : (market === "KR" ? KR_TO_YAHOO[code] : null);
+    // 커스텀 한국 종목(매핑에 없는 6자리 코드)은 야후 ".KS" 접미사로 폴백
+    return market === "US" ? code : (market === "KR" ? (KR_TO_YAHOO[code] || (/^\d{6}$/.test(code) ? code + ".KS" : null)) : null);
   }
 
   async function entryPricesKRW(holdings, startYm) {
@@ -136,9 +144,20 @@
     return out;
   }
 
+  // ---------------- 상품 메타 ----------------
+  // 계정 레코드에는 가입 시점의 상품 메타(name/target/mid/risk)를 스냅샷으로 저장한다.
+  // → 커스텀 상품이 나중에 삭제돼도 대시보드가 깨지지 않는다.
+  function productMeta(p) { return { name: p.name, target: p.target, mid: p.mid, risk: p.risk }; }
+  function accMeta(acc) {
+    if (acc.name != null) return { name: acc.name, target: acc.target, mid: acc.mid, risk: acc.risk };
+    const p = getProduct(acc.productId || acc.portfolioId) || PMAP.balanced;
+    return productMeta(p);
+  }
+
   // ---------------- 계정 평가 ----------------
   async function computeAccount(acc, fx) {
-    const port = PMAP[acc.portfolioId] || PMAP.balanced;
+    const pid = acc.productId || acc.portfolioId || "balanced";
+    const meta = accMeta(acc);
     if (fx == null) { try { fx = await fetchFX(); } catch (e) { fx = 1350; } }
     const quotes = await livePricesKRW(acc.holdings, fx);
 
@@ -159,15 +178,17 @@
     rows.forEach((r) => { r.curWeight = totalNow ? r.value / totalNow * 100 : r.weight; });
 
     const curRet = acc.seed ? totalNow / acc.seed - 1 : 0;
-    const mid = port.mid || 0.10;
+    const mid = meta.mid || 0.10;
     const expValue = acc.seed * Math.pow(1 + mid, elapsedYears);
     const expRet = expValue / acc.seed - 1;
     return {
-      portfolioId: acc.portfolioId, portfolioName: port.name, target: port.target,
-      seed: acc.seed, startDate: acc.startDate, elapsedYears: Math.round(elapsedYears * 100) / 100,
+      subId: acc.id, productId: pid, portfolioId: pid,
+      productName: meta.name, portfolioName: meta.name, target: meta.target, risk: meta.risk,
+      seed: acc.seed, startDate: acc.startDate, source: acc.source || "direct",
+      elapsedYears: Math.round(elapsedYears * 100) / 100,
       fx, holdings: rows, totalCost, totalValue: totalNow, currentReturn: curRet, dayChange,
       expectedValue: expValue, expectedReturn: expRet, gap: totalNow - expValue,
-      guide: buildGuidance(port, curRet, expRet, rows),
+      guide: buildGuidance(meta, curRet, expRet, rows),
     };
   }
 
@@ -187,14 +208,43 @@
   }
 
   // ---------------- localStorage 저장소 ----------------
+  function migrateOne(v) {
+    // 구버전 단일 계정 객체 → 신버전 계정 레코드(배열 원소)로 승격
+    const p = PMAP[v.portfolioId] || PMAP.balanced;
+    return {
+      id: 1, productId: v.portfolioId || "balanced",
+      name: p.name, target: p.target, mid: p.mid, risk: p.risk,
+      seed: v.seed, startDate: v.startDate, holdings: v.holdings,
+      source: "direct", created: v.created || new Date().toISOString(),
+    };
+  }
   const store = {
     users: () => JSON.parse(localStorage.getItem("polaris_users") || "[]"),
     setUsers: (v) => localStorage.setItem("polaris_users", JSON.stringify(v)),
-    accounts: () => JSON.parse(localStorage.getItem("polaris_accounts") || "{}"),
-    setAccounts: (v) => localStorage.setItem("polaris_accounts", JSON.stringify(v)),
+    accountsRaw: () => JSON.parse(localStorage.getItem("polaris_accounts") || "{}"),
+    setAccountsRaw: (v) => localStorage.setItem("polaris_accounts", JSON.stringify(v)),
+    userAccounts(uid) {
+      const all = store.accountsRaw();
+      let v = all[uid];
+      if (v == null) return [];
+      if (!Array.isArray(v)) { v = [migrateOne(v)]; all[uid] = v; store.setAccountsRaw(all); } // 지연 마이그레이션
+      return v;
+    },
+    setUserAccounts(uid, arr) { const all = store.accountsRaw(); all[uid] = arr; store.setAccountsRaw(all); },
+    customProducts: () => JSON.parse(localStorage.getItem("polaris_products") || "[]"),
+    setCustomProducts: (v) => localStorage.setItem("polaris_products", JSON.stringify(v)),
+    snapshots: () => JSON.parse(localStorage.getItem("polaris_snapshots") || "{}"),
+    setSnapshots: (v) => localStorage.setItem("polaris_snapshots", JSON.stringify(v)),
     session: () => localStorage.getItem("polaris_session"),
     setSession: (id) => id ? localStorage.setItem("polaris_session", String(id)) : localStorage.removeItem("polaris_session"),
   };
+
+  // ---------------- 상품 목록(빌트인 + 커스텀) ----------------
+  function listProducts() {
+    const custom = store.customProducts().map((p) => ({ ...p, custom: true }));
+    return [...PORTFOLIOS, ...custom];
+  }
+  function getProduct(id) { return listProducts().find((p) => p.id === id) || null; }
 
   // ---------------- 비밀번호 해싱 (WebCrypto PBKDF2) ----------------
   function hex(buf) { return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join(""); }
@@ -212,35 +262,53 @@
   }
 
   function nextId(users) { return users.reduce((m, u) => Math.max(m, u.id), 0) + 1; }
+  function nextSubId(arr) { return arr.reduce((m, a) => Math.max(m, a.id || 0), 0) + 1; }
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-  async function openAccount(uid, portfolioId, seed, startDate, customHoldings) {
-    const base = PMAP[portfolioId] || PMAP.balanced;
+  // ---------------- 계정(구독) 생성/수정 ----------------
+  async function buildHoldings(productId, seed, startDate, customHoldings) {
+    const base = getProduct(productId) || PMAP.balanced;
     const holds = (customHoldings || base.holdings).map((h) => ({ market: h.market, code: h.code, label: h.label, weight: Number(h.weight) }));
     const entry = await entryPricesKRW(holds, ymKey(startDate));
-    const recs = holds.map((h) => {
+    return holds.map((h) => {
       const cost = seed * h.weight / 100, ep = entry[h.code] || 0;
       const units = (h.market === "CASH" || !ep) ? 0 : cost / ep;
       return { market: h.market, code: h.code, label: h.label, weight: h.weight, units, entry: ep };
     });
-    const accts = store.accounts();
-    accts[uid] = { portfolioId, seed, startDate, holdings: recs, created: new Date().toISOString() };
-    store.setAccounts(accts);
+  }
+  function checkWeights(holdings) {
+    if (!holdings) return;
+    const tot = holdings.reduce((a, h) => a + Number(h.weight || 0), 0);
+    if (Math.abs(tot - 100) > 0.5) throw new Error(`비중 합계가 100%가 아닙니다(현재 ${tot.toFixed(1)}%).`);
+  }
+  async function subscribeFor(uid, { productId, seed, startDate, customHoldings, source }) {
+    const p = getProduct(productId);
+    if (!p) throw new Error("존재하지 않는 상품입니다.");
+    seed = Number(seed) || 100000000;
+    startDate = startDate || todayStr();
+    checkWeights(customHoldings);
+    const holdings = await buildHoldings(productId, seed, startDate, customHoldings);
+    const arr = store.userAccounts(uid);
+    const id = nextSubId(arr);
+    arr.push({ id, productId, ...productMeta(p), seed, startDate, holdings, source: source || "direct", created: new Date().toISOString() });
+    store.setUserAccounts(uid, arr);
+    return id;
   }
 
-  // ---------------- 인증 API (서버 엔드포인트 대체) ----------------
+  // ---------------- 인증 + 다중계정 API ----------------
   const API = {
-    async signup({ name, email, password, portfolioId, seed, startDate }) {
+    listProducts() { return listProducts(); },
+
+    async signup({ name, email, password }) {
       email = (email || "").trim().toLowerCase();
       name = (name || "").trim() || email.split("@")[0];
       if (!email || !email.includes("@") || (password || "").length < 4) throw new Error("이메일과 4자 이상의 비밀번호가 필요합니다.");
       const users = store.users();
       if (users.some((u) => u.email === email)) throw new Error("이미 가입된 이메일입니다.");
-      if (!PMAP[portfolioId]) portfolioId = "balanced";
       const { salt, hash } = await hashPw(password);
       const id = nextId(users);
       users.push({ id, email, name, salt, hash, role: "customer", created: new Date().toISOString() });
       store.setUsers(users);
-      await openAccount(id, portfolioId, Number(seed) || 100000000, startDate || todayStr());
       store.setSession(id);
       return { ok: true };
     },
@@ -259,31 +327,88 @@
     async me() {
       const u = API.currentUser();
       if (!u) return { auth: false };
-      const acc = store.accounts()[u.id];
-      const out = { auth: true, user: { id: u.id, email: u.email, name: u.name, role: u.role }, account: null };
-      if (acc) { try { out.account = await computeAccount(acc); } catch (e) { out.account_error = String(e); } }
+      const out = { auth: true, user: { id: u.id, email: u.email, name: u.name, role: u.role }, accounts: [], snapshot: store.snapshots()[u.id] || null };
+      const arr = store.userAccounts(u.id);
+      let fx; try { fx = await fetchFX(); } catch (e) { fx = 1350; }
+      for (const acc of arr) {
+        try { out.accounts.push(await computeAccount(acc, fx)); }
+        catch (e) { out.accounts.push({ subId: acc.id, productId: acc.productId, portfolioName: accMeta(acc).name, error: String(e) }); }
+      }
       return out;
     },
-    async updateAccount({ portfolioId, seed, holdings }) {
+
+    // 상품 가입(직접 시드 입력)
+    async subscribe({ productId, seed, startDate, customHoldings }) {
       const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
-      if (!PMAP[portfolioId]) throw new Error("존재하지 않는 상품입니다.");
-      if (holdings) {
-        const tot = holdings.reduce((a, h) => a + Number(h.weight || 0), 0);
-        if (Math.abs(tot - 100) > 0.5) throw new Error(`비중 합계가 100%가 아닙니다(현재 ${tot.toFixed(1)}%).`);
-      }
-      await openAccount(u.id, portfolioId, Number(seed) || 100000000, todayStr(), holdings);
+      const subId = await subscribeFor(u.id, { productId, seed, startDate, customHoldings, source: "direct" });
+      return { ok: true, subId };
+    },
+    // 특정 구독 수정(현재 시세로 재매수 → today 기준 재설정)
+    async updateAccount({ subId, productId, seed, holdings }) {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      const arr = store.userAccounts(u.id);
+      const idx = arr.findIndex((a) => a.id === subId);
+      if (idx < 0) throw new Error("해당 가입 상품을 찾을 수 없습니다.");
+      const p = getProduct(productId); if (!p) throw new Error("존재하지 않는 상품입니다.");
+      checkWeights(holdings);
+      seed = Number(seed) || arr[idx].seed;
+      const recs = await buildHoldings(productId, seed, todayStr(), holdings);
+      arr[idx] = { ...arr[idx], productId, ...productMeta(p), seed, startDate: todayStr(), holdings: recs };
+      store.setUserAccounts(u.id, arr);
       return { ok: true };
     },
+    // 구독 해지
+    async unsubscribe({ subId }) {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      const arr = store.userAccounts(u.id).filter((a) => a.id !== subId);
+      store.setUserAccounts(u.id, arr);
+      return { ok: true };
+    },
+
+    // ---------------- 자산 점검(스냅샷) ----------------
+    getSnapshot() {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      return store.snapshots()[u.id] || { assets: [], updated: null };
+    },
+    saveSnapshot({ assets }) {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      const clean = (assets || []).map((a) => ({
+        label: (a.label || "").trim() || "자산",
+        market: a.market || "ETC",
+        amount: Math.max(0, Number(a.amount) || 0),
+        ret: Number(a.ret) || 0, // 소수(0.1 = +10%)
+      })).filter((a) => a.amount > 0);
+      const snaps = store.snapshots();
+      snaps[u.id] = { assets: clean, updated: new Date().toISOString() };
+      store.setSnapshots(snaps);
+      return { ok: true, snapshot: snaps[u.id] };
+    },
+    // 전환: 스냅샷 총평가액을 시드로 삼아 선택 상품 비중으로 자동 배분하여 가입
+    async convert({ productId, startDate }) {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      const snap = store.snapshots()[u.id];
+      const total = (snap && snap.assets || []).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+      if (total <= 0) throw new Error("먼저 '자산 점검'에서 보유 자산을 입력해 주세요.");
+      const subId = await subscribeFor(u.id, { productId, seed: total, startDate, source: "converted" });
+      return { ok: true, subId, seed: total };
+    },
+
+    // ---------------- 관리자: 회원 ----------------
     async adminUsers() {
       const me = API.currentUser();
       if (!me || me.role !== "admin") throw new Error("관리자 권한이 필요합니다.");
       let fx; try { fx = await fetchFX(); } catch (e) { fx = 1350; }
-      const accts = store.accounts();
       const out = [];
       for (const u of store.users()) {
-        const row = { id: u.id, email: u.email, name: u.name, role: u.role, joined: u.created, portfolio: null, seed: null, value: null, ret: null };
-        const acc = accts[u.id];
-        if (acc) { try { const c = await computeAccount(acc, fx); row.portfolio = c.portfolioName; row.seed = c.seed; row.value = c.totalValue; row.ret = c.currentReturn; } catch (e) {} }
+        const arr = store.userAccounts(u.id);
+        const row = { id: u.id, email: u.email, name: u.name, role: u.role, joined: u.created, count: arr.length, seed: 0, value: 0, ret: null, products: [] };
+        let cost = 0;
+        for (const acc of arr) {
+          try { const c = await computeAccount(acc, fx); row.seed += c.seed; row.value += c.totalValue; cost += c.totalCost; row.products.push(c.portfolioName); }
+          catch (e) {}
+        }
+        if (cost > 0) row.ret = row.value / cost - 1;
+        if (!arr.length) { row.seed = null; row.value = null; }
         out.push(row);
       }
       return out;
@@ -293,12 +418,42 @@
       if (!me || me.role !== "admin") throw new Error("관리자 권한이 필요합니다.");
       if (userId === me.id) throw new Error("본인 계정은 삭제할 수 없습니다.");
       store.setUsers(store.users().filter((u) => u.id !== userId));
-      const accts = store.accounts(); delete accts[userId]; store.setAccounts(accts);
+      const all = store.accountsRaw(); delete all[userId]; store.setAccountsRaw(all);
+      const snaps = store.snapshots(); delete snaps[userId]; store.setSnapshots(snaps);
+      return { ok: true };
+    },
+
+    // ---------------- 관리자: 상품 ----------------
+    adminAddProduct({ id, name, tag, target, mid, risk, desc, holdings }) {
+      const me = API.currentUser();
+      if (!me || me.role !== "admin") throw new Error("관리자 권한이 필요합니다.");
+      name = (name || "").trim();
+      if (!name) throw new Error("상품명을 입력하세요.");
+      if (!holdings || !holdings.length) throw new Error("자산 구성을 1개 이상 추가하세요.");
+      checkWeights(holdings);
+      id = (id || "").trim() || ("custom-" + Date.now().toString(36));
+      const all = listProducts();
+      if (all.some((p) => p.id === id)) throw new Error("이미 존재하는 상품 ID입니다.");
+      const prod = {
+        id, name,
+        tag: (tag || "").trim() || "Custom",
+        target: (target || "").trim() || "연 -",
+        mid: Number(mid) || 0.10,
+        risk: Math.min(5, Math.max(1, Number(risk) || 3)),
+        desc: (desc || "").trim() || "관리자가 구성한 커스텀 포트폴리오.",
+        holdings: holdings.map((h) => ({ market: h.market || "ETC", code: h.code || h.label, label: (h.label || "").trim() || h.code, weight: Number(h.weight) || 0 })),
+      };
+      const custom = store.customProducts(); custom.push(prod); store.setCustomProducts(custom);
+      return { ok: true, product: prod };
+    },
+    adminDeleteProduct(id) {
+      const me = API.currentUser();
+      if (!me || me.role !== "admin") throw new Error("관리자 권한이 필요합니다.");
+      if (PMAP[id]) throw new Error("기본 상품은 삭제할 수 없습니다.");
+      store.setCustomProducts(store.customProducts().filter((p) => p.id !== id));
       return { ok: true };
     },
   };
-
-  function todayStr() { return new Date().toISOString().slice(0, 10); }
 
   // ---------------- 최초 1회: 데모 오너 시드 ----------------
   let seeding = null;
@@ -312,7 +467,8 @@
       users.push({ id, email: "2010ksy@gmail.com", name: "수연 고객님", salt, hash, role: "admin", created: new Date().toISOString() });
       store.setUsers(users);
       const start = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
-      try { await openAccount(id, "balanced", 100000000, start); } catch (e) { console.warn("시드 계정 보류", e); }
+      try { await subscribeFor(id, { productId: "balanced", seed: 100000000, startDate: start, source: "direct" }); }
+      catch (e) { console.warn("시드 계정 보류", e); }
     })();
     return seeding;
   }
@@ -325,5 +481,5 @@
     cls: (v) => v > 0 ? "up" : v < 0 ? "down" : "flat",
   };
 
-  window.Polaris = { COMPANY, PORTFOLIOS, PMAP, API, fmt, seedOwner, fetchFX, fetchUS, fetchKR };
+  window.Polaris = { COMPANY, PORTFOLIOS, PMAP, API, fmt, seedOwner, fetchFX, fetchUS, fetchKR, listProducts, getProduct };
 })();

@@ -35,16 +35,40 @@
   .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
   .btn{padding:11px 18px;border-radius:10px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:14px}
   .btn.gold{background:var(--gold);color:#1a1206;border-color:var(--gold)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .btn.danger{color:var(--down);border-color:var(--down)}
   .editrow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .editrow label{flex:1;font-size:14px}
   .editrow input{width:90px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);text-align:right}
   .editrow input.seed{width:160px}
   select,.editrow select{padding:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text)}
+  input{font-family:inherit}
   .wsum{font-weight:700;margin-top:8px}.muted{color:var(--muted)}
   .disc{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12px;color:var(--muted);margin-top:18px}
   .loading{color:var(--muted);padding:50px;text-align:center}
+  /* 탭 */
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 4px}
+  .tab{padding:8px 14px;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:13.5px;color:var(--muted);background:var(--card)}
+  .tab.on{color:#1a1206;background:var(--gold);border-color:var(--gold);font-weight:700}
+  .tab.add{color:var(--gold2);border-style:dashed}
+  /* 상품 카드 그리드 */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:6px}
+  .pcard{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}
+  .pcard .ptag{font-size:11px;color:var(--gold);border:1px solid var(--border);border-radius:6px;padding:1px 7px;align-self:flex-start}
+  .pcard h3{font-size:17px}.pcard .ptarget{color:var(--gold2);font-weight:700;font-size:14px}
+  .pcard .pdesc{font-size:12.5px;color:var(--muted);flex:1}
+  .risk i{display:inline-block;width:14px;height:5px;border-radius:3px;background:var(--border);margin-right:3px}
+  .risk i.on{background:var(--gold)}
+  /* 자산 점검 입력행 */
+  .arow{display:grid;grid-template-columns:1fr 110px 150px 110px 34px;gap:8px;align-items:center;margin:7px 0}
+  .arow input,.arow select{padding:9px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text)}
+  .arow input{text-align:right}.arow input.nm{text-align:left}
+  .arow .x{cursor:pointer;color:var(--down);text-align:center;border:1px solid var(--border);border-radius:8px;padding:9px 0}
+  .ahead{display:grid;grid-template-columns:1fr 110px 150px 110px 34px;gap:8px;font-size:11px;color:var(--muted);margin-bottom:2px}
+  .twogrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:620px){.twogrid{grid-template-columns:1fr}.arow,.ahead{grid-template-columns:1fr 80px 110px 70px 30px}}
   #editPanel{display:none}
-  @media print{nav,.btns,.navbtns,#editPanel,.noprint{display:none!important}
+  @media print{nav,.tabs,.btns,.navbtns,#editPanel,.noprint{display:none!important}
     body{background:#fff;color:#000}.card,.panel,.cmp .b,.guide li{background:#fff;border-color:#bbb;color:#000}
     .muted,.card .k,th{color:#444}h1{margin-top:0}.reportonly{display:block!important}}
   .reportonly{display:none}
@@ -59,43 +83,105 @@
 <script src="assets/config.js"></script>
 <script src="assets/core.js"></script>
 <script>
-let ME=null, ACC=null, PF=[];
+let ME=null, ACCOUNTS=[], SNAP=null, CURSUB=null, ASSETS=[];
+const PF=()=>Polaris.listProducts();
 const won=v=>v==null?"-":Math.round(v).toLocaleString("ko-KR")+"원";
-const eok=v=>(v/1e8).toFixed(2)+"억";
+const eok=v=>v==null?"-":(v/1e8).toFixed(2)+"억";
 const pct=v=>v==null?"-":(v>0?"+":"")+(v*100).toFixed(2)+"%";
 const cls=v=>v>0?"up":v<0?"down":"flat";
+const mkLabel=m=>m==="CASH"?"현금":m==="US"?"美":m==="KR"?"韓":"기타";
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 
 async function boot(){
   await Polaris.seedOwner();
   let me; try{ me=await Polaris.API.me(); }catch(e){ location.href="/"; return; }
   if(!me.auth){ location.href="/"; return; }
-  ME=me; PF=Polaris.PORTFOLIOS; ACC=me.account;
-  renderNav(); render();
+  ME=me; ACCOUNTS=me.accounts||[]; SNAP=me.snapshot;
+  renderNav();
+  if(ACCOUNTS.length===0) showAssets(); else showOverview();
 }
 function renderNav(){
   const admin=ME.user.role==="admin"?`<a href="admin.html">관리자</a>`:"";
   document.getElementById("navbtns").innerHTML=
-    `<span class="muted" style="border:none">${ME.user.name}님</span><a href="/">홈</a>${admin}<span onclick="logout()">로그아웃</span>`;
+    `<span class="muted" style="border:none">${esc(ME.user.name)}님</span><a href="/">홈</a>${admin}<span onclick="logout()">로그아웃</span>`;
 }
 function logout(){ Polaris.API.logout(); location.href="/"; }
+function root(){ return document.getElementById("root"); }
 
-function render(){
-  const root=document.getElementById("root");
-  if(!ACC){ root.innerHTML=`<h1>가입된 투자 계좌가 없습니다.</h1><p class="sub">홈에서 상품을 선택해 가입해 주세요.</p><a class="btn gold" href="/">상품 보러가기</a>`; return; }
-  const a=ACC, retCls=cls(a.currentReturn), gapCls=cls(a.gap);
+/* ───────── 상단 탭바 ───────── */
+function tabbar(active){
+  const prodTabs=ACCOUNTS.map(a=>{
+    const on=(active==="product"&&CURSUB===a.subId)?"on":"";
+    const ret=a.error?"":` <span class="${cls(a.currentReturn)}">${pct(a.currentReturn)}</span>`;
+    return `<div class="tab ${on}" onclick="showProduct(${a.subId})">${esc(a.portfolioName)}${ret}</div>`;
+  }).join("");
+  const overview=ACCOUNTS.length?`<div class="tab ${active==="overview"?"on":""}" onclick="showOverview()">통합 요약</div>`:"";
+  return `<div class="tabs">
+    ${overview}${prodTabs}
+    <div class="tab ${active==="assets"?"on":""}" onclick="showAssets()">자산 점검·전환</div>
+    <div class="tab add" onclick="showSubscribe()">+ 상품 가입</div>
+  </div>`;
+}
+
+/* ───────── 통합 요약 ───────── */
+function showOverview(){
+  CURSUB=null;
+  const ok=ACCOUNTS.filter(a=>!a.error);
+  const seed=ok.reduce((s,a)=>s+a.seed,0);
+  const value=ok.reduce((s,a)=>s+a.totalValue,0);
+  const cost=ok.reduce((s,a)=>s+a.totalCost,0);
+  const exp=ok.reduce((s,a)=>s+a.expectedValue,0);
+  const ret=cost?value/cost-1:0, gap=value-exp;
+  const day=value?ok.reduce((s,a)=>s+a.totalValue*(a.dayChange/100),0)/value*100:0;
+  const rows=ACCOUNTS.map(a=>{
+    if(a.error) return `<tr><td>${esc(a.portfolioName||"-")}</td><td colspan="5" class="down">평가 실패</td>
+      <td><span class="btn sm" onclick="showProduct(${a.subId})">열기</span></td></tr>`;
+    return `<tr>
+      <td>${esc(a.portfolioName)}${a.source==="converted"?' <span class="mk">전환</span>':''}</td>
+      <td>${won(a.seed)}</td><td>${won(a.totalValue)}</td>
+      <td class="${cls(a.currentReturn)}">${pct(a.currentReturn)}</td>
+      <td class="${cls(a.gap)}">${a.gap>=0?"+":""}${eok(a.gap)}</td>
+      <td class="${cls(a.dayChange)}">${pct(a.dayChange/100)}</td>
+      <td><span class="btn sm" onclick="showProduct(${a.subId})">상세</span></td></tr>`;
+  }).join("");
+  root().innerHTML=tabbar("overview")+`
+    <h1>${esc(ME.user.name)}님의 통합 자산 요약</h1>
+    <div class="sub">가입 상품 ${ACCOUNTS.length}개 · 실시간 시세·환율 기준 합산</div>
+    <div class="cards">
+      <div class="card"><div class="k">총 평가금액</div><div class="v">${won(value)}</div><div class="s2 muted">투자원금 ${won(seed)}</div></div>
+      <div class="card"><div class="k">총 수익률</div><div class="v ${cls(ret)}">${pct(ret)}</div><div class="s2 ${cls(value-cost)}">${won(value-cost)}</div></div>
+      <div class="card"><div class="k">일간 등락(가중)</div><div class="v ${cls(day)}">${pct(day/100)}</div></div>
+      <div class="card"><div class="k">현재 vs 예상</div><div class="v ${cls(gap)}">${gap>=0?"+":""}${eok(gap)}</div><div class="s2 muted">예상대비 ${gap>=0?"초과":"미달"}</div></div>
+    </div>
+    <div class="panel"><h2>가입 상품별 현황</h2>
+      <table><thead><tr><th>상품</th><th>투자원금</th><th>평가금액</th><th>수익률</th><th>현재vs예상</th><th>일간</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="btns"><button class="btn gold" onclick="showSubscribe()">+ 상품 추가 가입</button>
+        <button class="btn" onclick="showAssets()">자산 점검·전환</button></div></div>
+    <div class="disc">⚠️ 통합 요약은 가입한 모든 상품을 합산한 추정치입니다. 시세·환율은 외부 무료 데이터 기반으로 지연·오차가 있을 수 있습니다.</div>`;
+}
+
+/* ───────── 상품별 상세 ───────── */
+function showProduct(subId){
+  CURSUB=subId;
+  const a=ACCOUNTS.find(x=>x.subId===subId);
+  if(!a){ showOverview(); return; }
+  if(a.error){ root().innerHTML=tabbar("product")+`<h1>${esc(a.portfolioName||"상품")}</h1><div class="disc down">이 상품의 평가를 불러오지 못했습니다: ${esc(a.error)}</div>
+    <div class="btns"><button class="btn danger" onclick="unsubscribe(${subId})">가입 해지</button></div>`; return; }
+  const retCls=cls(a.currentReturn), gapCls=cls(a.gap);
   const rows=a.holdings.map(h=>{
     const isCash=h.market==="CASH";
     const price=isCash?"—":(h.price!=null?won(h.price):"<span class='down'>실패</span>");
     return `<tr>
-      <td><span class="mk">${isCash?"현금":h.market==="US"?"美":"韓"}</span>${h.label}${isCash?"":" · "+h.code}</td>
+      <td><span class="mk">${mkLabel(h.market)}</span>${esc(h.label)}${isCash?"":" · "+esc(h.code)}</td>
       <td>${h.weight}% <span class="muted">/ ${h.curWeight.toFixed(1)}%</span></td>
       <td>${isCash?"—":won(h.entry)}</td><td>${price}</td><td>${won(h.value)}</td>
       <td class="${cls(h.ret)}">${pct(h.ret)}</td><td class="${cls(h.dayChange)}">${pct(h.dayChange/100)}</td></tr>`;}).join("");
   const guide=a.guide.map(g=>{const ic=g.level==="warn"?"⚠️":g.level==="good"?"✅":"💡";
-    return `<li class="${g.level}"><span class="ic">${ic}</span><span>${g.text}</span></li>`;}).join("");
-  root.innerHTML=`
-    <h1>${ME.user.name}님의 자산 대시보드</h1>
-    <div class="sub">상품 <b>${a.portfolioName}</b> (${a.target}) · 투자 시작 ${a.startDate} · 경과 ${a.elapsedYears}년 · 환율 ${Math.round(a.fx).toLocaleString()}원</div>
+    return `<li class="${g.level}"><span class="ic">${ic}</span><span>${esc(g.text)}</span></li>`;}).join("");
+  root().innerHTML=tabbar("product")+`
+    <h1>${esc(a.portfolioName)} 대시보드${a.source==="converted"?' <span class="mk">자산 전환</span>':''}</h1>
+    <div class="sub">상품 <b>${esc(a.portfolioName)}</b> (${a.target}) · 투자 시작 ${a.startDate} · 경과 ${a.elapsedYears}년 · 환율 ${Math.round(a.fx).toLocaleString()}원</div>
     <p class="reportonly" style="color:#666;font-size:12px">북극성 자산운용 · 고객 리포트 · 생성일 ${new Date().toLocaleString("ko-KR")}</p>
     <div class="cards">
       <div class="card"><div class="k">총 평가금액</div><div class="v">${won(a.totalValue)}</div><div class="s2 muted">투자원금 ${won(a.seed)}</div></div>
@@ -116,6 +202,7 @@ function render(){
       <button class="btn gold" onclick="openEdit()">포트폴리오 수정</button>
       <button class="btn" onclick="window.print()">📄 리포트 PDF 저장/인쇄</button>
       <button class="btn" onclick="emailReport()">✉️ 메일로 보내기</button>
+      <button class="btn danger" onclick="unsubscribe(${subId})">가입 해지</button>
     </div>
     <div class="panel" id="editPanel"><h2>포트폴리오 수정</h2>
       <div class="editrow"><label>상품 선택</label><select id="ed-pid" onchange="onProductChange()"></select></div>
@@ -127,26 +214,29 @@ function render(){
       <div class="down" id="ed-err" style="font-size:13px;margin-top:8px"></div></div>
     <div class="disc">⚠️ 본 리포트는 데모이며 실제 투자 자문이 아닙니다. 시세·환율은 외부 무료 데이터 기반으로 지연·오차가 있을 수 있습니다.
       예상수익은 상품 목표수익률 중앙값을 경과기간에 복리 적용한 단순 추정치입니다. 과거·현재 성과는 미래를 보장하지 않습니다.</div>`;
+  window.scrollTo(0,0);
 }
 
+/* ───────── 포트폴리오 수정(편집) ───────── */
 function openEdit(){
+  const a=ACCOUNTS.find(x=>x.subId===CURSUB);
   const ep=document.getElementById("editPanel"); ep.style.display="block";
   const sel=document.getElementById("ed-pid");
-  sel.innerHTML=PF.map(p=>`<option value="${p.id}">${p.name} · ${p.target}</option>`).join("");
-  sel.value=ACC.portfolioId;
+  sel.innerHTML=PF().map(p=>`<option value="${p.id}">${esc(p.name)} · ${p.target}</option>`).join("");
+  sel.value=a.productId;
   const seed=document.getElementById("ed-seed");
-  seed.value=Math.round(ACC.seed).toLocaleString("ko-KR");
+  seed.value=Math.round(a.seed).toLocaleString("ko-KR");
   seed.addEventListener("input",e=>{const n=e.target.value.replace(/[^0-9]/g,"");e.target.value=n?parseInt(n,10).toLocaleString("ko-KR"):"";});
-  loadHoldingsEditor(ACC.holdings);
+  loadHoldingsEditor(a.holdings);
   ep.scrollIntoView({behavior:"smooth"});
 }
-function onProductChange(){ const p=PF.find(x=>x.id===document.getElementById("ed-pid").value);
+function onProductChange(){ const p=PF().find(x=>x.id===document.getElementById("ed-pid").value);
   loadHoldingsEditor(p.holdings.map(h=>({label:h.label,code:h.code,market:h.market,weight:h.weight}))); }
 let EDIT_HOLD=[];
 function loadHoldingsEditor(holds){
   EDIT_HOLD=holds.map(h=>({market:h.market,code:h.code,label:h.label,weight:h.weight}));
   document.getElementById("ed-holdings").innerHTML=EDIT_HOLD.map((h,i)=>`<div class="editrow">
-    <label><span class="mk">${h.market==="CASH"?"현금":h.market==="US"?"美":"韓"}</span>${h.label}</label>
+    <label><span class="mk">${mkLabel(h.market)}</span>${esc(h.label)}</label>
     <input type="number" min="0" max="100" step="0.5" value="${h.weight}" oninput="onWeight(${i},this.value)">% </div>`).join("");
   updateWSum();
 }
@@ -158,12 +248,149 @@ async function saveEdit(){
   const seed=parseInt(document.getElementById("ed-seed").value.replace(/[^0-9]/g,""),10);
   const s=EDIT_HOLD.reduce((a,h)=>a+(h.weight||0),0);
   if(Math.abs(s-100)>0.5){ document.getElementById("ed-err").textContent="비중 합계를 100%로 맞춰주세요."; return; }
-  try{ await Polaris.API.updateAccount({portfolioId:pid,seed,holdings:EDIT_HOLD}); }
+  document.getElementById("ed-err").textContent="저장 중…";
+  try{ await Polaris.API.updateAccount({subId:CURSUB,portfolioId:undefined,productId:pid,seed,holdings:EDIT_HOLD}); }
   catch(e){ document.getElementById("ed-err").textContent=e.message; return; }
-  location.reload();
+  await reload(); showProduct(CURSUB);
 }
+async function unsubscribe(subId){
+  const a=ACCOUNTS.find(x=>x.subId===subId);
+  if(!confirm(`'${a?a.portfolioName:""}' 상품 가입을 해지할까요? 해당 평가내역이 삭제됩니다.`)) return;
+  try{ await Polaris.API.unsubscribe({subId}); }catch(e){ alert(e.message); return; }
+  await reload();
+  ACCOUNTS.length?showOverview():showAssets();
+}
+
+/* ───────── 상품 가입(직접 시드) ───────── */
+function showSubscribe(){
+  CURSUB=null;
+  const cards=PF().map(p=>`<div class="pcard">
+    <span class="ptag">${esc(p.tag)}${p.custom?" · 커스텀":""}</span>
+    <h3>${esc(p.name)}</h3><div class="ptarget">${p.target}</div>
+    <div class="risk">${[1,2,3,4,5].map(i=>`<i class="${i<=p.risk?'on':''}"></i>`).join("")}</div>
+    <div class="pdesc">${esc(p.desc)}</div>
+    <button class="btn gold sm" onclick="openSubForm('${p.id}')">이 상품 가입하기 →</button>
+    <div id="subform-${p.id}"></div></div>`).join("");
+  root().innerHTML=tabbar("subscribe")+`
+    <h1>상품 가입</h1>
+    <div class="sub">원하는 모델 포트폴리오를 선택해 가입하세요. 보유 자산을 그대로 옮기려면 <a style="color:var(--gold2)" onclick="showAssets()">자산 점검·전환</a>을 이용하세요.</div>
+    <div class="pgrid">${cards}</div>`;
+}
+function openSubForm(pid){
+  const box=document.getElementById("subform-"+pid);
+  if(box.innerHTML){ box.innerHTML=""; return; }
+  document.querySelectorAll("[id^=subform-]").forEach(b=>b.innerHTML="");
+  box.innerHTML=`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+    <label class="muted" style="font-size:12px">투자 시드 (원)</label>
+    <input id="sf-seed-${pid}" inputmode="numeric" value="100,000,000" style="width:100%;padding:9px;margin:4px 0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);text-align:right"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'')?parseInt(this.value.replace(/[^0-9]/g,''),10).toLocaleString('ko-KR'):''">
+    <label class="muted" style="font-size:12px">투자 시작일</label>
+    <input id="sf-date-${pid}" type="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;padding:9px;margin:4px 0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+    <button class="btn gold sm" style="width:100%" onclick="doSubscribe('${pid}')">가입 확정</button>
+    <div class="down" id="sf-err-${pid}" style="font-size:12px;margin-top:6px"></div></div>`;
+}
+async function doSubscribe(pid){
+  const seed=parseInt((document.getElementById("sf-seed-"+pid).value||"").replace(/[^0-9]/g,""),10);
+  const startDate=document.getElementById("sf-date-"+pid).value;
+  const err=document.getElementById("sf-err-"+pid);
+  if(!seed||seed<10000){ err.textContent="시드 금액을 확인해 주세요."; return; }
+  err.textContent="가입 처리 중…";
+  let r; try{ r=await Polaris.API.subscribe({productId:pid,seed,startDate}); }catch(e){ err.textContent=e.message; return; }
+  await reload(); showProduct(r.subId);
+}
+
+/* ───────── 자산 점검 + 전환 ───────── */
+function showAssets(){
+  CURSUB=null;
+  ASSETS=(SNAP&&SNAP.assets&&SNAP.assets.length)?SNAP.assets.map(a=>({...a,ret:a.ret*100})):[{label:"",market:"KR",amount:"",ret:""}];
+  const opts=PF().map(p=>`<option value="${p.id}">${esc(p.name)} · ${p.target}</option>`).join("");
+  root().innerHTML=tabbar("assets")+`
+    <h1>내 투자 상태 점검</h1>
+    <div class="sub">현재 보유 중인 자산을 입력하면 평가액·수익률을 합산해 보여드리고, 원하는 상품으로 <b>전환(자동 배분)</b>할 수 있습니다.${ACCOUNTS.length?"":" 아직 가입한 상품이 없습니다."}</div>
+    <div class="panel"><h2>현재 보유 자산 입력</h2>
+      <div class="ahead"><div>자산명</div><div>시장</div><div>현재 평가액(원)</div><div>수익률(%)</div><div></div></div>
+      <div id="assetRows"></div>
+      <div class="btns"><button class="btn sm" onclick="addAssetRow()">+ 자산 추가</button>
+        <button class="btn gold sm" onclick="saveAssets()">자산 점검 저장</button></div>
+      <div id="assetSummary"></div></div>
+    <div class="panel"><h2>상품으로 전환 (자동 배분)</h2>
+      <p class="muted" style="font-size:13px;margin-bottom:10px">입력한 자산의 <b>총 평가액</b>을 시드로 삼아 선택한 상품의 모델 비중대로 재배분합니다. 아래에서 전환 전/후 구성을 비교한 뒤 실행하세요.</p>
+      <div class="editrow"><label>전환할 상품</label><select id="cv-pid" onchange="renderConvert()">${opts}</select></div>
+      <div id="convertPreview"></div>
+      <div class="btns"><button class="btn gold" onclick="doConvert()">전환 실행 (가입)</button></div>
+      <div class="down" id="cv-err" style="font-size:13px;margin-top:8px"></div></div>
+    <div class="disc">⚠️ 전환은 입력한 평가액을 기준으로 모델 포트폴리오를 새로 매수(가입)하는 시뮬레이션입니다. 실제 매도·세금·수수료는 반영되지 않습니다.</div>`;
+  renderAssetRows();
+}
+function renderAssetRows(){
+  document.getElementById("assetRows").innerHTML=ASSETS.map((a,i)=>`<div class="arow">
+    <input class="nm" placeholder="예: 삼성전자 / 예금" value="${esc(a.label)}" oninput="setAsset(${i},'label',this.value)">
+    <select onchange="setAsset(${i},'market',this.value)">
+      ${["KR","US","CASH","ETC"].map(m=>`<option value="${m}" ${a.market===m?"selected":""}>${m==="KR"?"한국주식":m==="US"?"미국주식":m==="CASH"?"현금/예금":"기타"}</option>`).join("")}
+    </select>
+    <input inputmode="numeric" placeholder="0" value="${a.amount!==""&&a.amount!=null?Number(a.amount).toLocaleString("ko-KR"):""}" oninput="setAmount(${i},this)">
+    <input inputmode="decimal" placeholder="0" value="${a.ret!==""&&a.ret!=null?a.ret:""}" oninput="setAsset(${i},'ret',this.value)">
+    <div class="x" onclick="removeAssetRow(${i})">✕</div></div>`).join("");
+  updateAssetSummary();
+}
+function setAsset(i,k,v){ ASSETS[i][k]=v; updateAssetSummary(); }
+function setAmount(i,inp){ const n=inp.value.replace(/[^0-9]/g,""); ASSETS[i].amount=n?parseInt(n,10):""; inp.value=n?parseInt(n,10).toLocaleString("ko-KR"):""; updateAssetSummary(); }
+function addAssetRow(){ ASSETS.push({label:"",market:"KR",amount:"",ret:""}); renderAssetRows(); }
+function removeAssetRow(i){ ASSETS.splice(i,1); if(!ASSETS.length)ASSETS.push({label:"",market:"KR",amount:"",ret:""}); renderAssetRows(); }
+function assetTotals(){
+  let val=0,cost=0;
+  ASSETS.forEach(a=>{ const amt=Number(a.amount)||0; const r=(Number(a.ret)||0)/100; if(amt>0){ val+=amt; cost+=amt/(1+r); } });
+  return {val,cost,gain:val-cost,ret:cost>0?val/cost-1:0};
+}
+function updateAssetSummary(){
+  const t=assetTotals();
+  document.getElementById("assetSummary").innerHTML=`<div class="cards" style="margin-top:14px">
+    <div class="card"><div class="k">총 평가액</div><div class="v">${won(t.val)}</div></div>
+    <div class="card"><div class="k">추정 원금</div><div class="v">${won(t.cost)}</div></div>
+    <div class="card"><div class="k">평가 손익</div><div class="v ${cls(t.gain)}">${won(t.gain)}</div></div>
+    <div class="card"><div class="k">블렌디드 수익률</div><div class="v ${cls(t.ret)}">${pct(t.ret)}</div></div></div>`;
+  if(document.getElementById("convertPreview")) renderConvert();
+}
+async function saveAssets(){
+  const payload=ASSETS.map(a=>({label:a.label,market:a.market,amount:Number(a.amount)||0,ret:(Number(a.ret)||0)/100}));
+  try{ const r=await Polaris.API.saveSnapshot({assets:payload}); SNAP=r.snapshot; alert("자산 점검 내용을 저장했습니다."); }
+  catch(e){ alert(e.message); }
+}
+function renderConvert(){
+  const box=document.getElementById("convertPreview"); if(!box) return;
+  const t=assetTotals();
+  const p=PF().find(x=>x.id===document.getElementById("cv-pid").value);
+  if(t.val<=0||!p){ box.innerHTML=`<p class="muted" style="font-size:13px">자산을 입력하면 전환 전/후 구성을 비교해 드립니다.</p>`; return; }
+  const before=ASSETS.filter(a=>(Number(a.amount)||0)>0).map(a=>{const amt=Number(a.amount)||0;
+    return `<tr><td><span class="mk">${mkLabel(a.market)}</span>${esc(a.label||"자산")}</td><td>${(amt/t.val*100).toFixed(1)}%</td><td>${won(amt)}</td></tr>`;}).join("");
+  const after=p.holdings.map(h=>`<tr><td><span class="mk">${mkLabel(h.market)}</span>${esc(h.label)}</td><td>${h.weight}%</td><td>${won(t.val*h.weight/100)}</td></tr>`).join("");
+  box.innerHTML=`<div class="twogrid" style="margin-top:6px">
+    <div><div class="muted" style="font-size:12px;margin-bottom:4px">전환 전 (현재 보유)</div>
+      <table><thead><tr><th>자산</th><th>비중</th><th>금액</th></tr></thead><tbody>${before}</tbody></table></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:4px">전환 후 (${esc(p.name)} 모델 배분)</div>
+      <table><thead><tr><th>자산</th><th>목표비중</th><th>배분금액</th></tr></thead><tbody>${after}</tbody></table></div>
+  </div><div class="wsum">전환 시드(총 평가액): <span class="up">${won(t.val)}</span></div>`;
+}
+async function doConvert(){
+  const err=document.getElementById("cv-err");
+  const t=assetTotals();
+  if(t.val<=0){ err.textContent="먼저 보유 자산을 입력해 주세요."; return; }
+  const pid=document.getElementById("cv-pid").value;
+  const p=PF().find(x=>x.id===pid);
+  if(!confirm(`총 ${won(t.val)}을(를) '${p.name}' 상품 비중으로 전환(가입)할까요?`)) return;
+  err.textContent="전환 처리 중…";
+  const payload=ASSETS.map(a=>({label:a.label,market:a.market,amount:Number(a.amount)||0,ret:(Number(a.ret)||0)/100}));
+  try{
+    await Polaris.API.saveSnapshot({assets:payload});
+    const r=await Polaris.API.convert({productId:pid});
+    await reload(); showProduct(r.subId);
+  }catch(e){ err.textContent=e.message; }
+}
+
+/* ───────── 공통 ───────── */
+async function reload(){ const me=await Polaris.API.me(); ME=me; ACCOUNTS=me.accounts||[]; SNAP=me.snapshot; }
 function emailReport(){
-  const a=ACC;
+  const a=ACCOUNTS.find(x=>x.subId===CURSUB); if(!a) return;
   const lines=[`[북극성 자산운용] ${ME.user.name}님 투자 리포트`,``,
     `상품: ${a.portfolioName} (${a.target})`,
     `투자원금: ${won(a.seed)} / 투자시작: ${a.startDate} (경과 ${a.elapsedYears}년)`,

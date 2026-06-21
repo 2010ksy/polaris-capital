@@ -125,12 +125,9 @@
   </div>
   <div id="form-signup" style="display:none">
     <input id="su-name" placeholder="이름"><input id="su-email" type="email" placeholder="이메일">
-    <input id="su-pw" type="password" placeholder="비밀번호 (4자 이상)">
-    <label class="flabel">가입할 상품</label><select id="su-pid"></select>
-    <label class="flabel">투자 시드 (원)</label><input id="su-seed" inputmode="numeric" value="100,000,000">
-    <label class="flabel">투자 시작일</label><input id="su-start" type="date">
-    <button class="mbtn" onclick="doSignup()">가입하고 투자 시작</button>
-    <p class="muted" style="font-size:12px;margin-top:8px">가입 즉시 해당 상품 모델 포트폴리오로 투자가 개시됩니다.</p>
+    <input id="su-pw" type="password" placeholder="비밀번호 (4자 이상)" onkeydown="if(event.key==='Enter')doSignup()">
+    <button class="mbtn" onclick="doSignup()">회원가입</button>
+    <p class="muted" style="font-size:12px;margin-top:8px">가입 후 대시보드에서 자산 점검·상품 선택을 진행합니다. 여러 상품에 가입할 수 있습니다.</p>
   </div>
 </div></div>
 
@@ -157,7 +154,7 @@
 </div></section>
 
 <section id="portfolios" style="background:var(--bg2)"><div class="wrap">
-  <div class="eyebrow">Model Portfolios</div><h2>세 가지 모델 포트폴리오</h2>
+  <div class="eyebrow">Model Portfolios</div><h2 id="pfHeading">모델 포트폴리오</h2>
   <p class="lead">기준 시드 <b id="seedLabel"></b>를 가정한 자산 배분입니다. 카드를 선택하면 실시간 시세 기준 상세 배분을 확인할 수 있습니다.</p>
   <div class="pf-grid" id="pfGrid"></div>
   <div class="detail" id="detail"></div>
@@ -214,7 +211,7 @@
 <script src="assets/config.js"></script>
 <script src="assets/core.js"></script>
 <script>
-const COMPANY=Polaris.COMPANY, PORTFOLIOS=Polaris.PORTFOLIOS;
+const COMPANY=Polaris.COMPANY, PORTFOLIOS=Polaris.listProducts();
 const COLORS=["#d9b46a","#4b8bff","#22c55e","#f6465d","#a78bfa","#f59e0b","#2dd4bf","#fb7185","#60a5fa","#facc15","#94a3b8"];
 let BACKTEST=null, seed=COMPANY.seed, fxRate=null, quoteCache={};
 
@@ -230,9 +227,10 @@ document.getElementById("seedLabel").textContent=wonShort(COMPANY.seed);
 document.getElementById("minFee").textContent=wonShort(COMPANY.seed);
 document.getElementById("stats").innerHTML=`
   <div class="stat"><div class="v">${wonShort(COMPANY.seed)}</div><div class="k">기준 운용 시드</div></div>
-  <div class="stat"><div class="v">3종</div><div class="k">위험성향별 포트폴리오</div></div>
+  <div class="stat"><div class="v">${PORTFOLIOS.length}종</div><div class="k">위험성향별 포트폴리오</div></div>
   <div class="stat"><div class="v">2개국</div><div class="k">한국 · 미국 분산</div></div>
   <div class="stat"><div class="v">실시간</div><div class="k">시세 · 환율 반영</div></div>`;
+{const _n=PORTFOLIOS.length;document.getElementById("pfHeading").textContent=(_n===3?"세 가지 ":_n+"가지 ")+"모델 포트폴리오";}
 document.getElementById("pfGrid").innerHTML=PORTFOLIOS.map(p=>`
   <div class="pf"><div class="tag">${p.tag}</div><h3>${p.name}</h3><div class="target">${p.target}</div>
     <div class="risk">${[1,2,3,4,5].map(i=>`<i class="${i<=p.risk?'on':''}"></i>`).join("")}</div>
@@ -362,9 +360,8 @@ async function doLogin(){
   location.href="dashboard.html";
 }
 async function doSignup(){
-  const seedv=parseInt((document.getElementById("su-seed").value||"0").replace(/[^0-9]/g,""),10);
   try{ await Polaris.API.signup({name:document.getElementById("su-name").value.trim(),email:document.getElementById("su-email").value.trim(),
-    password:document.getElementById("su-pw").value,portfolioId:document.getElementById("su-pid").value,seed:seedv,startDate:document.getElementById("su-start").value}); }
+    password:document.getElementById("su-pw").value}); }
   catch(e){ authErr(e.message); return; }
   location.href="dashboard.html";
 }
@@ -379,13 +376,6 @@ async function refreshAuthArea(){
   }
 }
 function logout(){ Polaris.API.logout(); location.reload(); }
-(function initAuthForm(){
-  const sel=document.getElementById("su-pid");
-  sel.innerHTML=PORTFOLIOS.map(p=>`<option value="${p.id}">${p.name} · ${p.target}</option>`).join(""); sel.value="balanced";
-  document.getElementById("su-start").value=new Date().toISOString().slice(0,10);
-  const s=document.getElementById("su-seed");
-  s.addEventListener("input",()=>{const n=s.value.replace(/[^0-9]/g,"");s.value=n?parseInt(n,10).toLocaleString("ko-KR"):"";});
-})();
 
 // ---------- 초기화 ----------
 (async function(){
