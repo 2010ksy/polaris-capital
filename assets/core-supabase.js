@@ -217,6 +217,16 @@
       return { ok: true };
     },
     async logout() { try { const c = await sb(); await c.auth.signOut(); } catch (e) {} return { ok: true }; },
+    // Supabase 모드의 카카오 로그인은 Supabase Auth의 네이티브 Kakao 공급자를 사용한다.
+    // (대시보드 → Authentication → Providers → Kakao 활성화 + Redirect URL 등록)
+    // 프런트의 /api/kakao 흐름 대신 아래 리다이렉트 방식을 쓰므로, 호환을 위해 직접 시작한다.
+    async socialLogin() {
+      const c = await sb();
+      const redirectTo = (window.POLARIS_CONFIG && window.POLARIS_CONFIG.kakaoRedirectUri) || (location.origin + "/dashboard.html");
+      const { error } = await c.auth.signInWithOAuth({ provider: "kakao", options: { redirectTo } });
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    },
 
     async me() {
       const c = await sb();

@@ -8,3 +8,9 @@
   from = "/api/market"
   to = "/.netlify/functions/market"
   status = 200
+
+# 카카오 로그인 OAuth 교환: /api/kakao → 함수
+[[redirects]]
+  from = "/api/kakao"
+  to = "/.netlify/functions/kakao-auth"
+  status = 200

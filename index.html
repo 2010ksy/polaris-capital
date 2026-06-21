@@ -100,6 +100,10 @@
   .modalbox input,.modalbox select{width:100%;padding:12px;margin-top:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none}
   .flabel{display:block;font-size:12px;color:var(--muted);margin-top:14px}
   .mbtn{width:100%;margin-top:16px;padding:13px;background:var(--gold);color:#1a1206;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer}
+  .kakaobtn{width:100%;margin-top:10px;padding:13px;background:#FEE500;color:#191600;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .kakaobtn .kico{font-size:16px}
+  .orline{display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px}
+  .orline::before,.orline::after{content:"";flex:1;height:1px;background:var(--border)}
   .autherr{color:#f6465d;font-size:13px;min-height:18px;margin-bottom:4px}
 </style>
 </head>
@@ -122,11 +126,15 @@
     <input id="li-email" type="email" placeholder="이메일">
     <input id="li-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="mbtn" onclick="doLogin()">로그인</button>
+    <div class="orline"><span>또는</span></div>
+    <button class="kakaobtn" onclick="startKakao()"><span class="kico">💬</span> 카카오로 로그인</button>
   </div>
   <div id="form-signup" style="display:none">
     <input id="su-name" placeholder="이름"><input id="su-email" type="email" placeholder="이메일">
     <input id="su-pw" type="password" placeholder="비밀번호 (4자 이상)" onkeydown="if(event.key==='Enter')doSignup()">
     <button class="mbtn" onclick="doSignup()">회원가입</button>
+    <div class="orline"><span>또는</span></div>
+    <button class="kakaobtn" onclick="startKakao()"><span class="kico">💬</span> 카카오로 시작하기</button>
     <p class="muted" style="font-size:12px;margin-top:8px">가입 후 대시보드에서 자산 점검·상품 선택을 진행합니다. 여러 상품에 가입할 수 있습니다.</p>
   </div>
 </div></div>
@@ -377,9 +385,39 @@ async function refreshAuthArea(){
 }
 function logout(){ Polaris.API.logout(); location.reload(); }
 
+// ---------- 카카오 로그인(OAuth) ----------
+function kakaoRedirectUri(){ const cfg=window.POLARIS_CONFIG||{}; return cfg.kakaoRedirectUri||(location.origin+"/"); }
+function startKakao(){
+  const cfg=window.POLARIS_CONFIG||{};
+  if(!cfg.kakaoRestKey){ authErr("카카오 로그인이 아직 설정되지 않았습니다. (관리자: config.js에 kakaoRestKey 입력 필요)"); return; }
+  const redirect=kakaoRedirectUri();
+  try{ sessionStorage.setItem("kakao_redirect",redirect); }catch(e){}
+  location.href=`https://kauth.kakao.com/oauth/authorize?client_id=${encodeURIComponent(cfg.kakaoRestKey)}&redirect_uri=${encodeURIComponent(redirect)}&response_type=code`;
+}
+async function handleKakaoReturn(){
+  const params=new URLSearchParams(location.search);
+  const code=params.get("code"), kerr=params.get("error");
+  if(!code && !kerr) return false;
+  // URL에서 인가코드 제거(새로고침 재시도 방지)
+  const clean=()=>history.replaceState({},"",location.pathname);
+  if(kerr){ clean(); openAuth("login"); authErr("카카오 로그인이 취소되었습니다."); return true; }
+  let redirect; try{ redirect=sessionStorage.getItem("kakao_redirect"); }catch(e){}
+  redirect=redirect||kakaoRedirectUri();
+  try{
+    const r=await fetch("/api/kakao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,redirectUri:redirect})});
+    const prof=await r.json();
+    if(!r.ok||prof.error) throw new Error(prof.error||"카카오 인증 실패");
+    await Polaris.API.socialLogin({provider:"kakao",providerId:prof.id,email:prof.email,name:prof.nickname});
+    location.replace("dashboard.html");
+  }catch(e){ clean(); openAuth("login"); authErr("카카오 로그인 실패: "+e.message); }
+  return true;
+}
+
 // ---------- 초기화 ----------
 (async function(){
   await Polaris.seedOwner();
+  // 카카오 로그인 리다이렉트 복귀 처리(인가코드가 있으면 우선 처리)
+  if(await handleKakaoReturn()) return;
   refreshAuthArea();
   try{ BACKTEST=await (await fetch("backtest_data.json")).json(); }catch(e){}
   renderBacktest();

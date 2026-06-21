@@ -315,9 +315,33 @@
     async login({ email, password }) {
       email = (email || "").trim().toLowerCase();
       const u = store.users().find((x) => x.email === email);
-      if (!u || !(await verifyPw(password, u.salt, u.hash))) throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
+      if (!u || !u.hash || !(await verifyPw(password, u.salt, u.hash))) throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
       store.setSession(u.id);
       return { ok: true, role: u.role };
+    },
+    // 소셜 로그인(카카오 등): provider+providerId로 기존 계정을 찾거나 새로 만든다.
+    // 가입과 로그인을 겸한다(없으면 자동 가입, 있으면 로그인).
+    async socialLogin({ provider, providerId, email, name }) {
+      provider = provider || "kakao";
+      providerId = String(providerId || "");
+      if (!providerId) throw new Error("소셜 로그인 정보가 올바르지 않습니다.");
+      email = (email || "").trim().toLowerCase();
+      const users = store.users();
+      let u = users.find((x) => x.provider === provider && String(x.providerId) === providerId);
+      if (!u && email) u = users.find((x) => x.email === email); // 같은 이메일이면 기존 계정에 연결
+      let isNew = false;
+      if (!u) {
+        const id = nextId(users);
+        u = { id, email: email || `${provider}_${providerId}@${provider}.local`, name: (name || "").trim() || "카카오 사용자",
+          provider, providerId, role: "customer", created: new Date().toISOString() };
+        users.push(u); store.setUsers(users); isNew = true;
+      } else if (!u.provider) {
+        u.provider = provider; u.providerId = providerId;
+        if (!u.name && name) u.name = name.trim();
+        store.setUsers(users);
+      }
+      store.setSession(u.id);
+      return { ok: true, isNew };
     },
     logout() { store.setSession(null); return { ok: true }; },
     currentUser() {
