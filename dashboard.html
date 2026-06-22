@@ -451,6 +451,19 @@ async function doConvert(){
 
 /* ───────── 공통 ───────── */
 async function reload(){ const me=await Polaris.API.me(); ME=me; ACCOUNTS=me.accounts||[]; SNAP=me.snapshot; HIST=null; }
+// mailto는 URL 길이 제한이 있어(한글은 인코딩 시 ~4.7배), 본문이 길면 전문을
+// 클립보드에 복사하고 메일 본문에는 안내문만 넣어 잘림/실패를 방지한다.
+function shareReportByEmail(to, subject, body){
+  const enc=encodeURIComponent(body);
+  const open=(b)=>{ location.href=`mailto:${to||""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(b)}`; };
+  if(enc.length<=1500){ open(body); return; }
+  const short="※ 리포트 전문을 클립보드에 복사했습니다. 메일 본문에 붙여넣기(⌘/Ctrl+V) 해주세요.\n\n"+body.slice(0,300)+"\n…(이하 생략)";
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(body)
+      .then(()=>{ alert("리포트가 길어 전문을 클립보드에 복사했습니다. 열리는 메일 본문에 붙여넣기 해주세요."); open(short); })
+      .catch(()=>open(short));
+  } else { open(short); }
+}
 function emailReport(){
   const a=ACCOUNTS.find(x=>x.subId===CURSUB); if(!a) return;
   const lines=[`[북극성 자산운용] ${ME.user.name}님 투자 리포트`,``,
@@ -462,7 +475,7 @@ function emailReport(){
     ...a.holdings.map(h=>` - ${h.label}: 비중 ${h.weight}%→${h.curWeight.toFixed(1)}%, 평가 ${won(h.value)} (${pct(h.ret)})`),
     ``,`[가이드]`,...a.guide.map(g=>` - ${g.text}`),``,
     `※ 상세 표/그래프는 대시보드의 'PDF 저장/인쇄'로 첨부해 주세요.`];
-  location.href=`mailto:${ME.user.email}?subject=${encodeURIComponent("북극성 자산운용 투자 리포트 - "+ME.user.name+"님")}&body=${encodeURIComponent(lines.join("\n"))}`;
+  shareReportByEmail(ME.user.email, "북극성 자산운용 투자 리포트 - "+ME.user.name+"님", lines.join("\n"));
 }
 boot();
 </script>

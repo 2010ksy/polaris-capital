@@ -223,10 +223,24 @@ function reportText(){
     `※ 외부 무료 데이터 기반 추정치이며 과거·현재 성과는 미래를 보장하지 않습니다.`,
   ].join("\n");
 }
+// mailto는 URL 길이 제한이 있어(한글은 인코딩 시 ~4.7배), 본문이 길면 전문을
+// 클립보드에 복사하고 메일 본문에는 안내문만 넣어 잘림/실패를 방지한다.
+function shareReportByEmail(to, subject, body){
+  const enc=encodeURIComponent(body);
+  const open=(b)=>{ location.href=`mailto:${to||""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(b)}`; };
+  if(enc.length<=1500){ open(body); return; }
+  const short="※ 리포트 전문을 클립보드에 복사했습니다. 메일 본문에 붙여넣기(⌘/Ctrl+V) 해주세요.\n\n"+body.slice(0,300)+"\n…(이하 생략)";
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(body)
+      .then(()=>{ alert("리포트가 길어 전문을 클립보드에 복사했습니다. 열리는 메일 본문에 붙여넣기 해주세요."); open(short); })
+      .catch(()=>open(short));
+  } else { open(short); }
+}
 function emailReport(){
-  let to=""; try{ /* 로그인 시 본인 메일로 기본 수신 */ }catch(e){}
+  if(!DATA){ alert("시장 데이터를 먼저 불러온 뒤 이용해 주세요."); return; }
+  const to=window.__myEmail||"";   // 로그인 시 본인 메일이 기본 수신자
   const subj=`북극성 자산운용 시장 동향 리포트 - ${DATA.at.toLocaleDateString("ko-KR")}`;
-  location.href=`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
+  shareReportByEmail(to, subj, reportText());
 }
 
 /* ───────── AI 시황 분석 ───────── */
@@ -272,13 +286,6 @@ async function boot(){
   if(timer) clearInterval(timer);
   timer=setInterval(refresh,60000);
 }
-// 로그인 사용자가 있으면 메일 기본 수신자 채우기
-const _origEmail=emailReport;
-emailReport=function(){
-  const to=window.__myEmail||"";
-  const subj=`북극성 자산운용 시장 동향 리포트 - ${DATA.at.toLocaleDateString("ko-KR")}`;
-  location.href=`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
-};
 boot();
 </script>
 </body></html>
