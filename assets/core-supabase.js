@@ -145,6 +145,31 @@
   }
   function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+  // 자산 추이(월별 평가금액 재구성) — core.js와 동일 로직
+  async function computeHistory(acc, fx) {
+    const startYm = ymKey(acc.startDate);
+    const now = new Date(), nowYm = now.getUTCFullYear() * 12 + now.getUTCMonth();
+    const fxm = await fetchMonthly("USDKRW=X").catch(() => ({}));
+    const maps = await Promise.all(acc.holdings.map(async (h) => {
+      if (h.market === "CASH") return null;
+      try { return await fetchMonthly(ySymbol(h.market, h.code)); } catch (e) { return null; }
+    }));
+    const series = [];
+    for (let ym = startYm; ym <= nowYm; ym++) {
+      let val = 0;
+      acc.holdings.forEach((h, i) => {
+        const cost = acc.seed * h.weight / 100;
+        if (h.market === "CASH") { val += cost * Math.pow(1.03, (ym - startYm) / 12); return; }
+        const m = maps[i]; if (!m) { val += cost; return; }
+        const px = nearest(m, ym); if (px == null) { val += cost; return; }
+        val += h.units * (h.market === "US" ? px * (nearest(fxm, ym) || fx || 1350) : px);
+      });
+      const y = Math.floor(ym / 12), mo = ym % 12 + 1;
+      series.push([`${y}-${String(mo).padStart(2, "0")}`, val]);
+    }
+    return series;
+  }
+
   // ── Supabase 클라이언트 (지연 로드) ──
   let _sb = null;
   async function sb() {
@@ -253,6 +278,23 @@
       await refreshProducts();
       const subId = await subscribeRow(user.id, { productId, seed, startDate, customHoldings, source: "direct" });
       return { ok: true, subId };
+    },
+    // 자산 추이(월별 평가금액): 상품별 + 통합 합산
+    async history() {
+      const c = await sb();
+      const { data: { user } } = await c.auth.getUser();
+      if (!user) throw new Error("로그인이 필요합니다.");
+      const { data: accs } = await c.from("accounts").select("*").eq("user_id", user.id).order("id");
+      let fx; try { fx = await fetchFX(); } catch (e) { fx = 1350; }
+      const accounts = [];
+      for (const a of (accs || [])) {
+        try { const acc = rowToAcc(a); accounts.push({ subId: acc.id, name: accMeta(acc).name, series: await computeHistory(acc, fx) }); }
+        catch (e) { /* 개별 실패 건너뜀 */ }
+      }
+      const labels = new Set();
+      accounts.forEach((a) => a.series.forEach((p) => labels.add(p[0])));
+      const total = [...labels].sort().map((l) => [l, accounts.reduce((s, a) => { const pt = a.series.find((p) => p[0] === l); return s + (pt ? pt[1] : 0); }, 0)]);
+      return { accounts, total };
     },
     async updateAccount({ subId, productId, seed, holdings }) {
       const c = await sb();

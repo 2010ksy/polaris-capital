@@ -13,8 +13,8 @@
  * ⚠️ anon key는 공개되어도 되는 키입니다(RLS로 보호). service_role 키는 절대 넣지 마세요.
  */
 window.POLARIS_CONFIG = {
-  supabaseUrl: "",      // 예: "https://abcdefgh.supabase.co"
-  supabaseAnonKey: "",  // 예: "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+  supabaseUrl: "https://gjjatzywlrjqhbqxdxwy.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqamF0enl3bHJqcWhicXhkeHd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNzg1OTQsImV4cCI6MjA5NzY1NDU5NH0.z3yC-fCEJRVrp6r52xyUt_r4S5ixeNc4tgBeZxI_llE",
 
   // ── 카카오 로그인 ──────────────────────────────────────────────
   // 1) https://developers.kakao.com 에서 앱 생성 → 앱 키의 "REST API 키"를 아래에 입력
