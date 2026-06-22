@@ -1,0 +1,9 @@
+{
+  "name": "polaris-capital-netlify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "북극성 자산운용 데모 — Netlify Functions 의존성(@anthropic-ai/sdk: AI 시황 분석)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  }
+}

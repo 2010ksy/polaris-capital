@@ -14,3 +14,9 @@
   from = "/api/kakao"
   to = "/.netlify/functions/kakao-auth"
   status = 200
+
+# AI 시황 분석: /api/ai → 함수
+[[redirects]]
+  from = "/api/ai"
+  to = "/.netlify/functions/ai-analyze"
+  status = 200

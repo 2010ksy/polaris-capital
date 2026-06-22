@@ -66,7 +66,7 @@ const pct=v=>v==null?"-":(v>0?"+":"")+v.toFixed(2)+"%";
 const cls=v=>v==null?"flat":v>0?"up":v<0?"down":"flat";
 const sgn=v=>v==null?"":v>0?"▲":v<0?"▼":"-";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-let DATA=null, timer=null;
+let DATA=null, timer=null, LAST_AI=null;
 
 // 지수/환율 정의
 const INDICES=[
@@ -182,6 +182,11 @@ function render(){
       <div class="panel"><h2>하락 상위</h2><table><thead><tr><th>종목</th><th>현재가</th><th>등락</th></tr></thead><tbody>${moverRows(losers)}</tbody></table></div>
     </div>
 
+    <div class="panel"><h2>🧠 AI 시황 분석</h2>
+      <div id="aiBox" style="font-size:13.5px;line-height:1.7">버튼을 누르면 Claude가 위 실시간 데이터를 바탕으로 시황을 자연어로 해설합니다.</div>
+      <div class="btns noprint" style="margin-top:12px"><button class="btn gold" id="aiBtn" onclick="runAI()">AI 시황 분석 생성</button></div>
+    </div>
+
     <div class="btns noprint">
       <button class="btn" onclick="refresh()">↻ 지금 새로고침</button>
       <button class="btn gold" onclick="window.print()">📄 리포트 PDF 저장/인쇄</button>
@@ -214,6 +219,7 @@ function reportText(){
     ...sorted.slice(0,5).map(m=>`  - ${m.label} ${pct(m.changePct)}`),
     `■ 하락 상위`,
     ...sorted.slice(-5).reverse().map(m=>`  - ${m.label} ${pct(m.changePct)}`),``,
+    ...(LAST_AI?[`■ AI 시황 분석`, LAST_AI, ``]:[]),
     `※ 외부 무료 데이터 기반 추정치이며 과거·현재 성과는 미래를 보장하지 않습니다.`,
   ].join("\n");
 }
@@ -223,9 +229,32 @@ function emailReport(){
   location.href=`mailto:${to}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
 }
 
+/* ───────── AI 시황 분석 ───────── */
+async function runAI(){
+  if(!DATA) return;
+  const box=document.getElementById("aiBox"), btn=document.getElementById("aiBtn");
+  box.innerHTML=`<span class="muted">AI가 시황을 분석 중입니다… (수 초 소요)</span>`;
+  if(btn) btn.disabled=true;
+  const a=analyze(DATA);
+  const snapshot={
+    asOf:DATA.at.toISOString(), tone:a.tone,
+    usAvgPct:a.usAvg!=null?+a.usAvg.toFixed(2):null, krAvgPct:a.krAvg!=null?+a.krAvg.toFixed(2):null,
+    indices:DATA.idx.map(d=>({name:d.label,price:d.price,changePct:d.changePct!=null?+d.changePct.toFixed(2):null})),
+    movers:DATA.movers.map(m=>({label:m.label,market:m.market==="US"?"미국":"한국",changePct:+m.changePct.toFixed(2)})),
+  };
+  try{
+    const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({snapshot})});
+    const j=await r.json();
+    if(!r.ok||j.error) throw new Error(j.error||"AI 분석 생성 실패");
+    LAST_AI=j.text;
+    box.innerHTML=`<div>${esc(j.text).replace(/\n/g,"<br>")}</div><div class="muted" style="font-size:11px;margin-top:10px">Claude(${esc(j.model||"AI")}) 생성 · 참고용 해설이며 투자 자문이 아닙니다.</div>`;
+  }catch(e){ box.innerHTML=`<span class="down">AI 분석 실패: ${esc(e.message)}</span>`; }
+  if(btn) btn.disabled=false;
+}
+
 /* ───────── 부트/갱신 ───────── */
 async function refresh(){
-  try{ DATA=await loadAll(); render(); }
+  try{ LAST_AI=null; DATA=await loadAll(); render(); }
   catch(e){ root().innerHTML=`<h1>실시간 시장 동향</h1><div class="disc down">시장 데이터를 불러오지 못했습니다: ${esc(e.message)} <button class="btn" onclick="refresh()" style="margin-left:8px">다시 시도</button></div>`; }
 }
 async function renderNav(){
