@@ -192,6 +192,36 @@
     };
   }
 
+  // ---------------- 자산 추이(월별 평가금액 재구성) ----------------
+  // 보유 수량(units)에 과거 월별 시세를 곱해 가입 시점부터 현재까지의 평가금액 곡선을 만든다.
+  async function computeHistory(acc, fx) {
+    const startYm = ymKey(acc.startDate);
+    const now = new Date();
+    const nowYm = now.getUTCFullYear() * 12 + now.getUTCMonth();
+    const fxm = await fetchMonthly("USDKRW=X").catch(() => ({}));
+    const maps = await Promise.all(acc.holdings.map(async (h) => {
+      if (h.market === "CASH") return null;
+      try { return await fetchMonthly(ySymbol(h.market, h.code)); } catch (e) { return null; }
+    }));
+    const series = [];
+    for (let ym = startYm; ym <= nowYm; ym++) {
+      let val = 0;
+      acc.holdings.forEach((h, i) => {
+        const cost = acc.seed * h.weight / 100;
+        if (h.market === "CASH") { val += cost * Math.pow(1.03, (ym - startYm) / 12); return; }
+        const m = maps[i];
+        if (!m) { val += cost; return; }
+        const px = nearest(m, ym);
+        if (px == null) { val += cost; return; }
+        const priceKRW = h.market === "US" ? px * (nearest(fxm, ym) || fx || 1350) : px;
+        val += h.units * priceKRW;
+      });
+      const y = Math.floor(ym / 12), mo = ym % 12 + 1;
+      series.push([`${y}-${String(mo).padStart(2, "0")}`, val]);
+    }
+    return series;
+  }
+
   function buildGuidance(port, curRet, expRet, rows) {
     const g = [];
     const diff = curRet - expRet;
@@ -359,6 +389,26 @@
         catch (e) { out.accounts.push({ subId: acc.id, productId: acc.productId, portfolioName: accMeta(acc).name, error: String(e) }); }
       }
       return out;
+    },
+
+    // 자산 추이(월별 평가금액): 상품별 + 통합 합산
+    async history() {
+      const u = API.currentUser(); if (!u) throw new Error("로그인이 필요합니다.");
+      const arr = store.userAccounts(u.id);
+      let fx; try { fx = await fetchFX(); } catch (e) { fx = 1350; }
+      const accounts = [];
+      for (const acc of arr) {
+        try { accounts.push({ subId: acc.id, name: accMeta(acc).name, series: await computeHistory(acc, fx) }); }
+        catch (e) { /* 개별 실패는 건너뜀 */ }
+      }
+      const labels = new Set();
+      accounts.forEach((a) => a.series.forEach((p) => labels.add(p[0])));
+      const sorted = [...labels].sort();
+      const total = sorted.map((l) => {
+        const v = accounts.reduce((s, a) => { const pt = a.series.find((p) => p[0] === l); return s + (pt ? pt[1] : 0); }, 0);
+        return [l, v];
+      });
+      return { accounts, total };
     },
 
     // 상품 가입(직접 시드 입력)

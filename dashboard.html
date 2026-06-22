@@ -158,7 +158,9 @@ function showOverview(){
       <tbody>${rows}</tbody></table>
       <div class="btns"><button class="btn gold" onclick="showSubscribe()">+ 상품 추가 가입</button>
         <button class="btn" onclick="showAssets()">자산 점검·전환</button></div></div>
+    <div class="panel"><h2>통합 자산 추이</h2><div id="histBoxTotal" class="muted" style="font-size:13px">월별 평가금액 추이를 불러오는 중…</div></div>
     <div class="disc">⚠️ 통합 요약은 가입한 모든 상품을 합산한 추정치입니다. 시세·환율은 외부 무료 데이터 기반으로 지연·오차가 있을 수 있습니다.</div>`;
+  loadHistory("total");
 }
 
 /* ───────── 상품별 상세 ───────── */
@@ -194,9 +196,11 @@ function showProduct(subId){
       <div class="b"><div class="k">예상 평가금액 (목표 ${a.target})</div><div class="v">${won(a.expectedValue)}</div><div class="muted">${pct(a.expectedReturn)}</div></div>
       <div class="b"><div class="k">차이</div><div class="v ${gapCls}">${a.gap>=0?"+":""}${won(a.gap)}</div><div class="${gapCls}">${a.gap>=0?"기대 상회":"기대 하회"}</div></div>
     </div></div>
+    <div class="panel"><h2>자산 추이</h2><div id="histBox" class="muted" style="font-size:13px">월별 평가금액 추이를 불러오는 중…</div></div>
     <div class="panel"><h2>보유 자산 구성</h2>
       <table><thead><tr><th>자산</th><th>비중 목표/현재</th><th>취득가</th><th>현재가</th><th>평가금액</th><th>수익률</th><th>일간</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
+    <div class="panel"><h2>리밸런싱 도우미</h2>${rebalanceTable(a)}</div>
     <div class="panel"><h2>향후 가이드</h2><ul class="guide">${guide}</ul></div>
     <div class="btns noprint">
       <button class="btn gold" onclick="openEdit()">포트폴리오 수정</button>
@@ -215,6 +219,64 @@ function showProduct(subId){
     <div class="disc">⚠️ 본 리포트는 데모이며 실제 투자 자문이 아닙니다. 시세·환율은 외부 무료 데이터 기반으로 지연·오차가 있을 수 있습니다.
       예상수익은 상품 목표수익률 중앙값을 경과기간에 복리 적용한 단순 추정치입니다. 과거·현재 성과는 미래를 보장하지 않습니다.</div>`;
   window.scrollTo(0,0);
+  loadHistory("product",subId);
+}
+
+/* ───────── 리밸런싱 도우미 ───────── */
+function rebalanceTable(a){
+  const tot=a.totalValue;
+  const rows=a.holdings.map(h=>{
+    const target=tot*h.weight/100, delta=target-h.value, buy=delta>=0;
+    const shares=(h.market!=="CASH"&&h.price)?Math.abs(delta)/h.price:null;
+    const small=Math.abs(delta)<tot*0.005;
+    return {h,target,delta,buy,shares,small};
+  });
+  const act=rows.filter(r=>!r.small).length;
+  const body=rows.map(r=>`<tr>
+    <td><span class="mk">${mkLabel(r.h.market)}</span>${esc(r.h.label)}</td>
+    <td>${r.h.curWeight.toFixed(1)}% → ${r.h.weight}%</td>
+    <td>${won(r.h.value)}</td><td>${won(r.target)}</td>
+    <td class="${r.small?'flat':r.buy?'up':'down'}">${r.small?'유지':(r.buy?'매수 ':'매도 ')+won(Math.abs(r.delta))}</td>
+    <td class="muted">${(r.shares!=null&&!r.small)?(r.h.market==='US'?'약 '+r.shares.toFixed(2)+'주':'약 '+Math.round(r.shares).toLocaleString()+'주'):'-'}</td></tr>`).join("");
+  return `<p class="muted" style="font-size:13px;margin-bottom:10px">현재 평가금액 ${won(tot)} 기준, 목표 비중으로 맞추기 위한 조정안입니다. ${act?`조정 권장 ${act}종목.`:"현재 목표 비중에 근접해 조정이 거의 필요 없습니다."}</p>
+    <table><thead><tr><th>자산</th><th>현재→목표</th><th>현재평가</th><th>목표평가</th><th>조정</th><th>예상수량</th></tr></thead><tbody>${body}</tbody></table>
+    <p class="muted" style="font-size:12px;margin-top:8px">※ 예상수량은 현재가 기준 근사치이며 거래비용·세금·최소 거래단위는 반영되지 않습니다.</p>`;
+}
+
+/* ───────── 자산 추이 차트 ───────── */
+let HIST=null;
+function lineChart(series,opts){
+  opts=opts||{};
+  if(!series||series.length<2) return `<div class="muted" style="font-size:13px">표시할 추이 데이터가 부족합니다(가입 후 1개월 이상 경과 시 표시).</div>`;
+  const vals=series.map(p=>p[1]); let lo=Math.min(...vals),hi=Math.max(...vals);
+  if(opts.seed){ lo=Math.min(lo,opts.seed); hi=Math.max(hi,opts.seed); }
+  if(hi===lo) hi=lo*1.01+1;
+  const W=820,H=300,PL=64,PR=14,PT=14,PB=26,n=series.length;
+  const xOf=i=>PL+(W-PL-PR)*(i/(n-1)), yOf=v=>PT+(H-PT-PB)*(1-(v-lo)/(hi-lo));
+  const fmtY=v=>{const e=v/1e8;return e>=1?e.toFixed(e>=10?0:1)+"억":Math.round(v/1e4).toLocaleString()+"만";};
+  let grid="";for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=yOf(v);grid+=`<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="#22304a" opacity="0.4"/><text x="${PL-8}" y="${(y+4).toFixed(1)}" fill="#90a0bb" font-size="11" text-anchor="end">${fmtY(v)}</text>`;}
+  let prevY=null,xlab="";series.forEach((p,i)=>{const y=p[0].slice(0,4);if(y!==prevY){prevY=y;const x=xOf(i);xlab+=`<line x1="${x.toFixed(1)}" y1="${PT}" x2="${x.toFixed(1)}" y2="${H-PB}" stroke="#22304a" opacity="0.3"/><text x="${x.toFixed(1)}" y="${H-PB+16}" fill="#90a0bb" font-size="11" text-anchor="middle">${y}</text>`;}});
+  const up=series[n-1][1]>=series[0][1], col=up?"#22c55e":"#f6465d";
+  const d=series.map((p,i)=>`${i?"L":"M"}${xOf(i).toFixed(1)},${yOf(p[1]).toFixed(1)}`).join(" ");
+  const area=`${d} L${xOf(n-1).toFixed(1)},${(H-PB).toFixed(1)} L${PL},${(H-PB).toFixed(1)} Z`;
+  const seedLine=opts.seed?`<line x1="${PL}" y1="${yOf(opts.seed).toFixed(1)}" x2="${W-PR}" y2="${yOf(opts.seed).toFixed(1)}" stroke="#90a0bb" stroke-dasharray="4 4" opacity="0.7"/><text x="${W-PR}" y="${(yOf(opts.seed)-5).toFixed(1)}" fill="#90a0bb" font-size="10" text-anchor="end">투자원금</text>`:"";
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" preserveAspectRatio="xMidYMid meet">
+    <defs><linearGradient id="histg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${xlab}${seedLine}<path d="${area}" fill="url(#histg)"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2.2"/></svg>
+    <div class="muted" style="font-size:12px;margin-top:6px">가입 시점부터 현재까지 월별 평가금액(보유 수량 × 과거 시세 재구성). 과거 성과는 미래를 보장하지 않습니다.</div>`;
+}
+async function loadHistory(scope,subId){
+  const boxId=scope==="total"?"histBoxTotal":"histBox";
+  try{ if(!HIST) HIST=await Polaris.API.history(); }
+  catch(e){ const b=document.getElementById(boxId); if(b) b.innerHTML=`<span class="down">추이를 불러오지 못했습니다.</span>`; return; }
+  const box=document.getElementById(boxId); if(!box) return;
+  if(scope==="total"){
+    const seed=ACCOUNTS.filter(a=>!a.error).reduce((s,a)=>s+a.seed,0);
+    box.innerHTML=(HIST.total&&HIST.total.length)?lineChart(HIST.total,{seed}):`<span class="muted">추이 데이터가 없습니다.</span>`;
+  }else{
+    const a=ACCOUNTS.find(x=>x.subId===subId), h=HIST.accounts.find(x=>x.subId===subId);
+    box.innerHTML=h?lineChart(h.series,{seed:a?a.seed:0}):`<span class="muted">추이 데이터가 없습니다.</span>`;
+  }
 }
 
 /* ───────── 포트폴리오 수정(편집) ───────── */
@@ -388,7 +450,7 @@ async function doConvert(){
 }
 
 /* ───────── 공통 ───────── */
-async function reload(){ const me=await Polaris.API.me(); ME=me; ACCOUNTS=me.accounts||[]; SNAP=me.snapshot; }
+async function reload(){ const me=await Polaris.API.me(); ME=me; ACCOUNTS=me.accounts||[]; SNAP=me.snapshot; HIST=null; }
 function emailReport(){
   const a=ACCOUNTS.find(x=>x.subId===CURSUB); if(!a) return;
   const lines=[`[북극성 자산운용] ${ME.user.name}님 투자 리포트`,``,
