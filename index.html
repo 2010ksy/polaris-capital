@@ -105,6 +105,36 @@
   .orline{display:flex;align-items:center;gap:10px;margin:16px 0 2px;color:var(--muted);font-size:12px}
   .orline::before,.orline::after{content:"";flex:1;height:1px;background:var(--border)}
   .autherr{color:#f6465d;font-size:13px;min-height:18px;margin-bottom:4px}
+  /* ───────── 모바일 대응 ───────── */
+  @media(max-width:760px){
+    .wrap{padding:0 16px}
+    nav .wrap{height:auto;flex-wrap:wrap;padding:10px 16px;gap:8px}
+    .navlinks{gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .navlinks a:not(.cta):not(.ghostbtn){display:none}  /* 섹션 앵커는 모바일에서 숨김 */
+    .brand small{display:none}
+    .hero{padding:50px 0 42px}
+    .hero h1{font-size:32px}
+    .hero p{font-size:16px;margin-top:14px}
+    .hero .btns{margin-top:24px}
+    .btn{padding:12px 18px;font-size:14px}
+    .stats{margin-top:36px;gap:12px}
+    section{padding:44px 0}
+    h2{font-size:24px}
+    .values,.pf-grid,.cols{margin-top:24px;gap:14px}
+    .pf{padding:20px}.value{padding:20px}.col{padding:18px}
+    .pf .desc{min-height:0}
+    .contact{padding:26px 18px}
+    .detail{padding:16px;overflow-x:auto}
+    .detail table{min-width:440px}
+    .seedbox input{width:120px;font-size:17px}
+    .dgrid{gap:18px}
+  }
+  @media(max-width:420px){
+    .hero h1{font-size:27px}
+    h2{font-size:21px}
+    .stat .v{font-size:22px}
+    .pf h3{font-size:21px}.pf .target{font-size:19px}
+  }
 </style>
 </head>
 <body>

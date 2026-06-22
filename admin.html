@@ -44,7 +44,19 @@
   .pitem{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
   .pitem h3{font-size:15px}.pitem .meta{font-size:12px;color:var(--muted);margin:4px 0}
   .err{color:var(--down);font-size:13px;margin-top:8px}
-  @media(max-width:640px){.hrow,.hhead{grid-template-columns:70px 1fr 80px 60px 30px}}
+  @media(max-width:640px){.hrow,.hhead{grid-template-columns:60px 1fr 70px 52px 28px}}
+  /* ───────── 모바일 대응 ───────── */
+  @media(max-width:600px){
+    .wrap{padding:0 14px 50px}
+    nav .wrap{height:auto;flex-wrap:wrap;padding:9px 14px;gap:8px}
+    .navbtns{display:flex;flex-wrap:wrap;gap:6px}
+    .navbtns a,.navbtns span{margin-left:0;padding:6px 10px}
+    h1{font-size:20px}h2{font-size:16px}
+    .cards{gap:10px}.card .v{font-size:20px}
+    .panel table{min-width:640px}      /* 회원표는 컬럼 많음 → 가로 스크롤 */
+    .formgrid{grid-template-columns:1fr 1fr;gap:10px}
+    .plist{gap:10px}
+  }
 </style></head>
 <body>
 <nav><div class="wrap">

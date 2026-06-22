@@ -49,6 +49,20 @@
   @media print{nav,.btns,.noprint{display:none!important}
     body{background:#fff;color:#000}.panel,.idx,.tone,.guide li{background:#fff;border-color:#bbb;color:#000}
     .muted,.idx .nm,th{color:#444}h1{margin-top:0}}
+  /* ───────── 모바일 대응 ───────── */
+  @media(max-width:600px){
+    .wrap{padding:0 14px 50px}
+    nav .wrap{height:auto;flex-wrap:wrap;padding:9px 14px;gap:8px}
+    .navbtns{gap:6px;font-size:12.5px}
+    .navbtns a,.navbtns span{padding:6px 10px}
+    h1{font-size:21px}
+    .panel{padding:16px}.panel h2{font-size:16px}
+    .tone{padding:14px 16px;gap:10px}.tone .em{font-size:24px}.tone .t{font-size:16px}
+    .idxgrid{grid-template-columns:1fr 1fr;gap:10px}
+    .idx{padding:13px}.idx .v{font-size:19px}
+    .grp{margin:14px 0 6px}
+  }
+  @media(max-width:380px){ .idxgrid{grid-template-columns:1fr} }
 </style></head>
 <body>
 <nav><div class="wrap">

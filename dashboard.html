@@ -72,6 +72,24 @@
     body{background:#fff;color:#000}.card,.panel,.cmp .b,.guide li{background:#fff;border-color:#bbb;color:#000}
     .muted,.card .k,th{color:#444}h1{margin-top:0}.reportonly{display:block!important}}
   .reportonly{display:none}
+  /* ───────── 모바일 대응 ───────── */
+  @media(max-width:600px){
+    .wrap{padding:0 14px 50px}
+    nav .wrap{height:auto;flex-wrap:wrap;padding:9px 14px;gap:8px}
+    .navbtns{gap:6px;font-size:12.5px;flex-wrap:wrap}
+    .navbtns a,.navbtns span{padding:6px 10px}
+    h1{font-size:20px;margin:18px 0 4px}
+    .panel{padding:15px;overflow-x:auto}
+    .panel h2{font-size:16px}
+    .panel table{min-width:520px}      /* 보유자산/리밸런싱 표는 가로 스크롤 */
+    .cmp{grid-template-columns:1fr;gap:10px}
+    .cards{gap:10px}
+    .card .v{font-size:21px}
+    .tabs{gap:6px;margin:14px 0 2px}
+    .tab{padding:7px 11px;font-size:12.5px}
+    .btn{padding:10px 14px;font-size:13.5px}
+    .pgrid{gap:12px}
+  }
 </style></head>
 <body>
 <nav><div class="wrap">
